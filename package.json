@@ -1,0 +1,39 @@
+{
+  "name": "bulk-validator",
+  "version": "0.9",
+  "description": "Customizable input validator",
+  "main": "index.js",
+  "scripts": {
+    "test": "node_modules/.bin/mocha --reporter spec"
+  },
+  "keywords": [
+    "input",
+    "validator"
+  ],
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/danikaze/npm-bulk-validator.git"
+  },
+  "homepage": "https://github.com/danikaze/npm-bulk-validator",
+  "bugs": "https://github.com/danikaze/npm-bulk-validator/issues",
+  "author": {
+    "name": "Daniel Berlanga",
+    "email": "danikaze@gmail.com"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "extend": "^3.0.0",
+    "is-empty-object": "^1.1.1",
+    "truncate": "^2.0.0",
+    "vanilla-type-check": "^1.0.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "eslint": "^3.3.1",
+    "eslint-config-airbnb": "^10.0.1",
+    "eslint-plugin-import": "^1.13.0",
+    "eslint-plugin-jsx-a11y": "^2.1.0",
+    "eslint-plugin-react": "^6.1.2",
+    "mocha": "^3.0.2"
+  }
+}
