@@ -30,7 +30,7 @@ validator.str('name', 'Daniel Berlanga')
          .num('luckyNumber', '7')
          .str('birthday', '1801-04-09', { regExp: /\d{4}-\d{2}-\d{2}/ })
          .bool('male', 1).
-         .enumeratedKeyValue('day', 'FRI');
+         .enumeratedKeyValue('day', 'FRI', { enumerated: weekDays });
 
 // check for errors
 if(validator.errors()) {
@@ -128,7 +128,7 @@ var Validator = require('bulk-validator').Validator;
 // (in Japan phone numbers are like XXX-XXXX-XXXX)
 var alias = 'phone';
 var validator = 'str';
-var options = { regExp: '\d{3}-\d{4}-\d{4}' };
+var options = { regExp: /^\d{3}-\d{4}-\d{4}$/ };
 
 // using the static function addAlias define the validator in the prototype
 Validator.addAlias(alias, validator, options);
@@ -139,7 +139,7 @@ var v2 = new Validator();
 v1.phone('foo', '080-1234-5678') // this will validate
   .phone('bar', '1234-5678');    // this won't validate
 
-typeof v.phone; // function
+typeof v1.phone; // function
 typeof v2.phone; // function
 
 // we can create a local validator too, like this:
@@ -180,7 +180,7 @@ function exampleValidator(data, options) {
   var total = 0;
   var list;
 
-  if (typeof options.data !== 'string') {
+  if (typeof data !== 'string') {
     ok = false;
   } else {
     list = data.split(',');
