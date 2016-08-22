@@ -1,6 +1,6 @@
 {
   "name": "bulk-validator",
-  "version": "0.9",
+  "version": "0.9.0",
   "description": "Customizable input validator",
   "main": "index.js",
   "scripts": {
