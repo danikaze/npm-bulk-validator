@@ -10,14 +10,44 @@ Data validator which allows:
  - allow optional data and default values
  - perform strict/non-strict validation
 
+## Contents
+
+  - [Installation](#installation)
+  - [Basic Usage](#basic-usage)
+  - [Validator global options](#validator-global-options)
+    - [strict](#strict)
+    - [canonize](#canonize)
+    - [returnNullOnErrors](#returnnullonerrors)
+    - [stopAfterFirstError](#stopafterfirsterror)
+    - [optional](#optional)
+    - [defaultValue](#defaultvalue)
+    - [validators](#validators)
+    - [allowOverwriteValidator](#allowoverwritevalidator)
+  - [List of default validators](#list-of-default-validators)
+    - [defined](#defined)
+    - [bool](#bool)
+    - [num](#num)
+    - [str](#str)
+    - [fn](#fn)
+    - [enumerated](#enumerated)
+    - [enumeratedKey](#enumeratedkey)
+    - [enumeratedKeyValue](#enumeratedkeyvalue)
+    - [json](#json)
+  - [List of default aliases](#list-of-default-aliases)
+    - [notEmptyStr](#notemptystr)
+    - [positiveInt](#positiveint)
+  - [Defining aliases](#defining-aliases)
+  - [Defining custom validators](#defining-custom-validators)
+  - [Running tests](#running-tests)
+
+## Installation
+
 Install with [npm](https://www.npmjs.com/)
 ```
 npm install bulk-validator
 ```
 
-## Usage
-
-### Basic Usage
+## Basic Usage
 
 ```javascript
 var Validator = require('bulk-validator').Validator;
@@ -55,69 +85,169 @@ var validData = validator.valid();
 */
 ```
 
-### Validator global options
+## Validator global options
 
-#### strict
+This is  the list of global options of the validators.
+
+They can be accessed and modified through the static object in `Validator.defaultOptions`,
+which will be applied to all the new instances created.
+
+Instances created before modifying this object won't be affected.
+
+```javascript
+Validator.defaultOptions.optional = false;
+var v1 = new Validator();
+Validator.defaultOptions.optional = true;
+var v2 = new Validator();
+// v1 still has optional set to false
+// v2 has optional set to true by default
+```
+
+This options can be overridden in each validation like this:
+```javascript
+var v = new Validator({
+  defaultValue: -1,
+  returnNullOnErrors: false
+});
+
+v.num('n1', 0)
+ .num('n2', undefined)
+ .num('n3', undefined, { optional: true })
+ .num('n4', undefined, { optional: true, defaultValue: 100 });
+
+v.valid();  // { n1: 0, n3: -1, n4: 100 }
+v.errors(); // { n2: undefined }
+```
+
+### strict
+
+If set to `true`, default validators will usually apply strict comparison/validation
+(i.e. using `===` instead of `==`, or doing type checking).
+
+It's also one of the options passed to the custom validators, and can/need be used when
+implementing them.
 
 Default value: `false`
 
-#### canonize
+### canonize
+
+When `true`, if the data is valid, it's value will be converted to the one returned by the
+validator. If `false`, the data will be validated but the original will be preserved
+(i.e. `v.num('n', '123')` will return `123` or `'123'` depending on this option)
 
 Default value: `true`
 
-#### returnNullOnErrors
+### returnNullOnErrors
+
+If this option is `true` and any of the passed data fails the validation, calling `valid()`
+will return `null`. Set to `false` if you still want to retrieve the valid values.
 
 Default value: `true`
 
-#### stopAfterFirstError
+### stopAfterFirstError
+
+If you don't care about providing (a lot of) information of the failed validation, you
+can set this option to `true` and no other validation will be performed once there's an error.
+
+This should give you a few more free CPU cycles ;)
 
 Default value: `false`
 
-#### optional
+### optional
+
+Mark the data as optional (all of them is specified in `Validator.defaultOptions`, the
+options passed to the Validator constructor, or only a parameter if passed to a validation
+method.
+
+If `true`, a validation won't fail if the data value is `undefined` and the data
+will be asigned with `defaultValue` if specified.
+
+It will still fail for other values like `null`, `0`, `false`, etc.
 
 Default value: `false`
 
-#### validators
+### defaultValue
 
-Default value: `{}`
+If `options.optional` is set to `true` and the data is `undefined`, it will be assigned
+with the value defined here.
 
-#### allowOverwriteValidator
+Example:
+```javascript
+v = new Validator();
+v.str('data', undefined, {
+  optional: true,
+  defaultValue: 'hello world'
+});
 
-Default value: `false`
-
-#### defaultValue
+// v.valid().data === 'hello world'
+```
 
 Default value: `undefined`
 
-### List of default validators
+### validators
 
-#### defined
+List of validators to add *locally* to a new Validator when instanciated.
+It should be defined as set like `{ name: definition }`
 
-#### bool
+Example:
+```javascript
+var v = new Validator({ validators: {
+  allPass: function(data, options) {
+    return {
+      data: data,
+      valid: true
+    };
+  }
+}});
 
-#### num
+v.allPass('foo', 'bar');
+v.allPassArray('foo', ['bar']);
+v.allPassObject('foo', { k: 'bar' });
+```
 
-#### str
+Default value: `undefined`
 
-#### fn
+### allowOverwriteValidator
 
-#### enumerated
+This option protects the already created validators.
 
-#### enumeratedKey
+Set it to `true` if you wanna get rid of any of them or override its behavior with a custom one.
 
-#### enumeratedKeyValue
+**Note:**
+it will raise an `Error` if you try to override any method with this option set to `false`.
 
-#### json
+Default value: `false`
 
-### List of default aliases
+## List of default validators
 
-#### notEmptyStr
+### defined
 
-#### positiveInt
+### bool
 
-### Defining aliases
+### num
+
+### str
+
+### fn
+
+### enumerated
+
+### enumeratedKey
+
+### enumeratedKeyValue
+
+### json
+
+## List of default aliases
+
+### notEmptyStr
+
+### positiveInt
+
+## Defining aliases
 
 You can define your own aliases to call existing validators (or other aliases) with predefined options.
+
 They can be created as global validators (defined in the prototype) with `Validator.addAlias`
 or locally (defined in an instance v) with `v.addAlias`
 
@@ -150,11 +280,12 @@ typeof v1.int; // 'function'
 typeof v2.int; // 'undefined'
 ```
 
-You can see more examples in `aliases.js`
+You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
 
-### Defining custom validators
+## Defining custom validators
 
 If you need a more complex validator, you can create your own too!
+
 They can be created as global validators (defined in the prototype) with `Validator.addValidator`
 or locally (defined in an instance v) with `v.addValidator`
 
@@ -168,9 +299,37 @@ A validator is just a function accepting two parameters and returning an object:
   - `data` is the canonized data (type casting, etc.)
   - `valid` is a Boolean saying if the data passes the validation
 
-An example is easier to understand.
-This validator will accept only a list of comma-separated numbers whose addition is an even number.
+It's easier to understand with examples:
+
+This validator will pass everything but the number `0` (and making use of the `strict` option)
+
+```javascript
+// validator definition
+function allButZero(data, options) {
+  return {
+    data: data,
+    valid: (options.strict && data !== 0) || (!options.strict && data!= 0)
+  };
+}
+
+// validator addition (as a global definition called allButZero)
+Validator.addValidator('allButZero', allButZero);
+
+// validator usage:
+v = new Validator({ returnNullOnErrors: false, strict: false });
+v.allButZero('n1', 1)
+ .allButZero('n2', 0)
+ .allButZero('n3', "0")
+ .allButZero('n4', "0", { strict: true });
+
+v.valid();  // { n1: 1, n4: "0" }
+v.errors(); // { n2: 0, n3: "0" }
+```
+
+This other validator will accept only a list of comma-separated numbers whose addition is an even number.
+
 If `options.odd` is `true`, it will pass the validation if the total is an odd number instead of even.
+
 It will also convert the data to the said total.
 
 ```javascript
@@ -217,7 +376,7 @@ v.valid();  // { pass: 8, odd: 7 }
 v.errors(); // { fail: '-3,2,8' }
 ```
 
-You can see more examples in `definitions.js`
+You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/definitions.js)
 
 ## Running tests
 
