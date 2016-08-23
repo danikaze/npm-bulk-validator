@@ -18,12 +18,12 @@ module.exports.Validator = (function moduleDefinition() {
     stopAfterFirstError: false,
     // if true, a undefined value will validate
     optional: false,
-    // object with the default validators to load with {@link R.Validator.addValidator}
-    validators: {},
-    // if an existing validator is defined and this option is false, an exception will raise
-    allowOverwriteValidator: false,
     // value to return if doesn't validates and {@link options.optional} is true
     defaultValue: undefined,
+    // object with the default validators to load with {@link R.Validator.addValidator}
+    validators: undefined,
+    // if an existing validator is defined and this option is false, an exception will raise
+    allowOverwriteValidator: false,
   };
 
   /**
@@ -199,8 +199,10 @@ module.exports.Validator = (function moduleDefinition() {
     this.ok = {};
     this.wrong = {};
 
-    for (i in this.options.validators) {
-      this.addValidator(i, this.options.validators[i]);
+    if (this.options.validators) {
+      for (i in this.options.validators) {
+        this.addValidator(i, this.options.validators[i]);
+      }
     }
   }
 

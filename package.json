@@ -1,13 +1,24 @@
 {
   "name": "bulk-validator",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Customizable input validator",
   "main": "index.js",
   "scripts": {
     "test": "node_modules/.bin/mocha --reporter spec"
   },
   "keywords": [
+    "alias",
+    "assert",
+    "custom",
+    "customizable",
+    "customization",
     "input",
+    "sanitise",
+    "sanitisation",
+    "sanitize",
+    "sanitization",
+    "validate",
+    "validation",
     "validator"
   ],
   "repository": {
@@ -23,7 +34,6 @@
   "license": "ISC",
   "dependencies": {
     "extend": "^3.0.0",
-    "is-empty-object": "^1.1.1",
     "truncate": "^2.0.0",
     "vanilla-type-check": "^1.0.0"
   },
