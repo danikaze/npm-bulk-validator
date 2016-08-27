@@ -7,7 +7,7 @@ module.exports = (function() {
   var aliases = [{
     alias: 'notEmptyStr',
     validator: 'str',
-    options: { regExp: /.+/ },
+    options: { minLength: 1 },
   }, {
     alias: 'positiveInt',
     validator: 'num',

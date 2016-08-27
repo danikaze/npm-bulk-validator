@@ -222,65 +222,230 @@ Default value: `false`
 
 ### defined
 
+The data will pass the validation if is not `undefined`.
+
 ### bool
+
+The validation process will depend on the `strict` option.
+
+If the `strict` is set to `true`, it will pass the validation only if it's type is strictly a `Boolean`.
+
+If the `strict` is set to `false`, it will pass the validation always.
+Also, its value will be set to the casting of the data (i.e. `0` will be `false`, `1` `true`).
+In case of strings, it will evaluate to `true` if it's not `''`, `'false'` or `'0'`.
 
 ### num
 
+The validation process will depend on the `strict` option.
+
+When `strict` is set to `true`, it will only validate if it's a `number` ([isNumber](https://www.npmjs.com/package/vanilla-type-check)).
+If `strict` is `false`, it will accept also _numeric_ values ([isNumeric](https://www.npmjs.com/package/vanilla-type-check)) and `Infinity`.
+
+It accepts also other validation options:
+
+  - **`rangeMin`** and **`rangeMax`**: If any of this options is set, it will only accept values greater/less than the specified (as _rangeMin < data < rangeMax_).
+  - **`minEq`** and **`maxEq`**: By default this options are `false`, but if set to `true`, if set `rangeMin` or `rangeMax` will perform the comparisons with the `<=`/`>=` operators instead of `<`/`>`.
+  - **`regExp`**: If this option is set (to a string or a valid RegExp), the data need to match it to pass thte validation.
+
+There are also some options that don't accept the validation, but modificate the canonized value (when `canonize` is `true`):
+
+ - **`integer`**: when set to `true` the data will be converted to integer (before applying any other condition)
+ - **`min`** and `max`: it will clamp the data to avoid outer values
+
+Examples:
+
+```javascript
+// Accept only numbers greater or equal than 10 and less than 20, which ends in ".0" or ".5"
+var v = new Validator({
+  rangeMin: 10,
+  rangeMax: 20,
+  minEq: true,
+  regExp: '\.[35]$'
+});
+v.num('n1', 5.5)	  // fail: it's less than 10
+ .num('n2', 10)		  // fail: don't match the regular expression
+ .num('n3', 10.0)	  // fail: a number like this is passed as 10, not as 10.0
+ .num('n4', '10.0')	// pass: it's a string but strict is set to false by default (and preserves the decimal part)
+ .num('n5', 11.3)  	// fail: it doesn't match the regular expressoin
+ .num('n6', 15.5)	  // pass
+ .num('n7', 20.0);	// fail: it's equal to rangeMax, but it's compared with < and not with <=
+```
+
+```javascript
+// accept all numeric values, setting them to 0 if negatives, and removing their decimal part
+var v = new Validator({
+  integer: true,
+  min: 0
+});
+v.num('n1', -3)	                        // it will pass, and its value will be set to 0
+ .num('n2', 1000)	                      // pass, there's no upper limit
+ .num('n3', 10.5)	                      // pass and it's value will be set to 10 (integer)
+ .num('n4', -5.9, { min: -Infinity });	// pass and it's value will be set to -5
+```
+
 ### str
+
+Accepts strings.
+
+Like `num`, its validation process depends on the `strict` option: When `true` it will only accept data of the `string` type. If `false`, it will accept all kind of data that can be converted to `string`.
+
+It accept also the following options:
+
+  - **`minLength`**: If specified, the data won't validate unless its length is greater or equal than this option.
+  - **`maxLength`**: If specified, the data won't validate unless its length is less than this option.
+  - **`truncate`**: If `true` the string will pass the validation, but will be truncated.
+  - **`append`**: If specified AND the string is truncated, this string will be appended. Nothing is appended if the string length is less than `maxLength` (see [truncate](https://www.npmjs.com/package/truncate)).
+  - **`regExp`**: If specified, it needs to match the RegExp to validate. It's applied after `truncate`, but before `lowerCase` and `upperCase`.
+  - **`lowerCase`**: If `true`, the string will be transformed to lower case.
+  - **`upperCase`**: If `true`, the string will be transformed to upper case.
+
+Examples:
+
+```javascript
+var v = new Validator({ returnNullOnErrors: false });
+v.str('s0', '', { minLength: 3 })
+ .str('s1', 'test string', { minLength: 3 })
+ .str('s2', 'abcdefghijklmmnopqrstuvwxyz', { maxLength: 10 })
+ .str('s3', 'abcdefghijklmmnopqrstuvwxyz', { maxLength: 10, truncate: true })
+ .str('s4', 'abcdefghijklmmnopqrstuvwxyz', { maxLength: 10, truncate: true, append: '...' })
+ .str('s5', 'AbCdE', { lowerCase: true });
+
+v.valid();   // {
+             //   s1: "test string"
+             //   s3: "abcdefghij"
+             //   s4: "abcdefghij..."
+             //   s5: "abcde"
+             // }
+v.errors();  // {
+             //   s0: '',
+             //   s2: "abcdefghijklmmnopqrstuvwxyz"
+             // }
+```
 
 ### fn
 
+This is a very simple validator that will pass the data only if they are functions. In this validator, the option `strict` has no effect.
+
+```javascript
+var v = new Validator();
+
+v.fn('f1', function() {})    // pass, valid function
+ .fn('f2', 'function() {}'); // fail (it's a string, not a function)
+```
+
 ### enumerated
+
+This validator checks that the passed data is one of the values defined in an object.
+The `strict` option defines if the comparison should be done strictly (`===`) or not (`==`).
+
+You need to pass the object where the definitions are in the `enumerated` option.
+
+```javascript
+var weekDays = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
+var v = new Validator({ enumerated: weekDays, returnNullOnErrors: false });
+
+v.enumerated('e1', 0)
+ .enumerated('e2', 4)
+ .enumerated('e3', weekDays.THU)
+ .enumerated('e4', 'SUN')         // fail: SUN is not a value of the enumerated (is a key)
+ .enumerated('e5', 'Friday')      // fail: Ok this has nothing to do here...
+ .enumerated('e6', 10);           // fail: This value is not in the enumerated object
+
+v.valid(); // { e1: 0, e2: 4, e3: 3 }
+```
 
 ### enumeratedKey
 
+This validator works like **enumerated**, but checks if the value is one of the keys of the object.
+
+You need to pass the object where the definitions are in the `enumerated` option.
+
+```javascript
+var weekDays = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
+var v = new Validator({ enumerated: weekDays, returnNullOnErrors: false });
+
+v.enumeratedKey('e1', 'MON')
+ .enumeratedKey('e2', 4)             // fail: 4 is a value, not a key
+ .enumeratedKey('e3', weekDays.THU)  // fail: this resolves to 3, which is not a key
+ .enumeratedKey('e4', 'SUN')
+ .enumeratedKey('e5', 'Friday')      // fail: Ok this has nothing to do here...
+ .enumeratedKey('e6', 'fri');        // fail: the key is defined as an upper case string
+
+v.valid(); // { e1: 'MON', e4: 'SUN' }
+```
+
 ### enumeratedKeyValue
 
+This validator works the same that **enumeratedKey**, checking that the data is a key of the object,
+but returning its associated value instead of the key itself.
+
+```javascript
+var weekDays = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
+var v = new Validator({ enumerated: weekDays, returnNullOnErrors: false });
+
+v.enumeratedKeyValue('e1', 'MON')
+ .enumeratedKeyValue('e2', 4)             // fail: 4 is a value, not a key
+ .enumeratedKeyValue('e3', weekDays.THU)  // fail: this resolves to 3, which is not a key
+ .enumeratedKeyValue('e4', 'SUN')
+ .enumeratedKeyValue('e5', 'Friday')      // fail: Ok this has nothing to do here...
+ .enumeratedKeyValue('e6', 'fri');        // fail: the key is defined as an upper case string
+
+v.valid(); // { e1: 0, e4: 6 }
+```
+
 ### json
+
+Validates data to be a correct JSON definition (using `JSON.parse`).
+Doesn't accept any option, and returns the parsed JavaScript data.
+
+Note that functions and `NaN` are not parseable by `JSON`, so they are not supported,
+and will fail the validation.
+
+```javascript
+var v = new Validator();
+
+v.json('data', '[1,2,3]');
+v.valid().data[1]; // 2
+```
 
 ## List of default aliases
 
 ### notEmptyStr
 
-### positiveInt
-
-## Defining aliases
-
-You can define your own aliases to call existing validators (or other aliases) with predefined options.
-
-They can be created as global validators (defined in the prototype) with `Validator.addAlias`
-or locally (defined in an instance v) with `v.addAlias`
+Alias using `str`, with default options to reject empty strings.
 
 ```javascript
-var Validator = require('bulk-validator').Validator;
+var v = new Validator({ returnNullOnErrors: false });
 
-// define a global validator for phone numbers
-// (in Japan phone numbers are like XXX-XXXX-XXXX)
-var alias = 'phone';
-var validator = 'str';
-var options = { regExp: /^\d{3}-\d{4}-\d{4}$/ };
+v.notEmptyStr('s1', 'abcd')
+ .notEmptyStr('s2', ' ')
+ .notEmptyStr('s3', '')
+ .notEmptyStr('n1', 2);
 
-// using the static function addAlias define the validator in the prototype
-Validator.addAlias(alias, validator, options);
-
-// now we can use it like this:
-var v1 = new Validator();
-var v2 = new Validator();
-v1.phone('foo', '080-1234-5678') // this will validate
-  .phone('bar', '1234-5678');    // this won't validate
-
-typeof v1.phone; // function
-typeof v2.phone; // function
-
-// we can create a local validator too, like this:
-v1.addAlias('int', 'num', { integer: true });
-
-// it won't be defined in the Validator.prototype
-typeof v1.int; // 'function'
-typeof v2.int; // 'undefined'
+v.valid();   // { s1: 'abcd', s2: ' ' }
+v.errors();  // { s3: '', n1: 2 }
 ```
 
-You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
+### positiveInt
+
+Alias using `num`, to accept only integers greater than 0
+
+```javascript
+var v = new Validator({ returnNullOnErrors: false });
+
+v.positiveInt('n1', '123')
+ .positiveInt('n2', 123)
+ .positiveInt('n3', 1)
+ .positiveInt('n4', 0)
+ .positiveInt('n5', -1)
+ .positiveInt('f1', 1.5)
+ .positiveInt('f2', '6.5')
+ .positiveInt('f3', 0.5)
+ .positiveInt('f4', -1.5);
+
+v.valid();   // { n1: 123, n2: 123, n3: 1, f1: 1, f2: 6 }
+v.errors();  // { n4: 0, n5: -1, f3: 0.5, f4: -1.5 }
+```
 
 ## Defining custom validators
 
@@ -377,6 +542,44 @@ v.errors(); // { fail: '-3,2,8' }
 ```
 
 You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/definitions.js)
+
+## Defining custom aliases
+
+You can define your own aliases to call existing validators (or other aliases) with predefined options.
+
+They can be created as global validators (defined in the prototype) with `Validator.addAlias`
+or locally (defined in an instance v) with `v.addAlias`
+
+```javascript
+var Validator = require('bulk-validator').Validator;
+
+// define a global validator for phone numbers
+// (in Japan phone numbers are like XXX-XXXX-XXXX)
+var alias = 'phone';
+var validator = 'str';
+var options = { regExp: /^\d{3}-\d{4}-\d{4}$/ };
+
+// using the static function addAlias define the validator in the prototype
+Validator.addAlias(alias, validator, options);
+
+// now we can use it like this:
+var v1 = new Validator();
+var v2 = new Validator();
+v1.phone('foo', '080-1234-5678') // this will validate
+  .phone('bar', '1234-5678');    // this won't validate
+
+typeof v1.phone; // function
+typeof v2.phone; // function
+
+// we can create a local validator too, like this:
+v1.addAlias('int', 'num', { integer: true });
+
+// it won't be defined in the Validator.prototype
+typeof v1.int; // 'function'
+typeof v2.int; // 'undefined'
+```
+
+You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
 
 ## Running tests
 

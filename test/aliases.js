@@ -26,11 +26,13 @@ describe('alias.notEmptyStr', function() {
 
     validator.notEmptyStr('s1', 'abcd')
              .notEmptyStr('s2', ' ')
-             .notEmptyStr('s3', '');
+             .notEmptyStr('s3', '')
+             .notEmptyStr('n1', 2);
 
     expect(validator.valid().s1).to.be.equal('abcd');
     expect(validator.valid().s2).to.be.equal(' ');
     expect(validator.errors().s3).to.be.equal('');
+    expect(validator.valid().n1).to.be.equal('2');
   });
 });
 

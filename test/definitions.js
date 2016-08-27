@@ -428,7 +428,11 @@ describe('validator.num', function() {
              .num('n3', 2005)
              .num('n4', 2010)
              .num('n5', 2015)
-             .num('n6', 2020);
+             .num('n6', 2020)
+             .num('n7', 10.0, { regExp: '\\.0$' })
+             .num('n8', '10.0', { regExp: '\\.0$' })
+             .num('n9', 10.0, { regExp: '\\.0$', integer: true })
+             .num('n10', '10.0', { regExp: '\\.0$', integer: true });
 
     expect(validator.errors().n1).to.equal(1900);
     expect(validator.valid().n2).to.equal(2000);
@@ -436,6 +440,10 @@ describe('validator.num', function() {
     expect(validator.valid().n4).to.equal(2010);
     expect(validator.valid().n5).to.equal(2015);
     expect(validator.errors().n6).to.equal(2020);
+    expect(validator.errors().n7).to.equal(10.0);
+    expect(validator.valid().n8).to.equal(10.0);
+    expect(validator.errors().n9).to.equal(10);
+    expect(validator.valid().n10).to.equal(10);
   });
 });
 
@@ -543,6 +551,28 @@ describe('validator.str', function() {
     expect(validator.valid().NaN).to.equal('NaN');
     expect(validator.valid().fn).to.equal('function () {}');
     expect(validator.valid().undefined).to.equal('undefined');
+  });
+
+  it('should not accept strings shorter than options.minLength if specified', function() {
+    var validator = new Validator({
+      strict: false,
+      returnNullOnErrors: false,
+      minLength: 5,
+    });
+
+    validator.str('s0', '')
+             .str('s0b', '', { minLength: 0 })
+             .str('s3', 'abc')
+             .str('s5', 'abcde')
+             .str('s7', 'abcdegh')
+             .str('s9', 'abcdeghij');
+
+    expect(validator.errors().s0).equal('');
+    expect(validator.valid().s0b).equal('');
+    expect(validator.errors().s3).equal('abc');
+    expect(validator.valid().s5).equal('abcde');
+    expect(validator.valid().s7).equal('abcdegh');
+    expect(validator.valid().s9).equal('abcdeghij');
   });
 
   it('should not accept strings larger than options.maxLength if specified', function() {

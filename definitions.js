@@ -118,7 +118,10 @@ module.exports = (function() {
     }
 
     if (ok && options.regExp) {
-      ok = val.toString().search(options.regExp) !== -1;
+      if (typeCheck.isString(options.regExp)) {
+        options.regExp = new RegExp(options.regExp);
+      }
+      ok = options.regExp.exec(data) !== null;
     }
 
     return {
@@ -130,16 +133,22 @@ module.exports = (function() {
   /*
    * Generic String validator
    *
-   * @param {Number}        [options.maxLength] If specified, the string will be truncated. It is applied before {@link options.regExp}
-   * @param {Boolean}       [options.truncate]  If <code>true</code> the string will be accepted but truncated
-   * @param {String}        [options.append]    If specified AND the string is truncated, this will be appended
-   * @param {String|RegExp} [options.regExp]    If specified, it needs to match the RegExp to validate
-   * @param {Boolean}       [options.lowerCase] If <code>true</code>, the string will be transformed to lowerCase
-   * @param {Boolean}       [options.upperCase] If <code>true</code>, the string will be transformed to upperCase
+   * @param {Number}        [options.minLength] If specified, the data won't validate unless its length is greater than this option.
+   * @param {Number}        [options.maxLength] If specified, the data won't validate unless its length is less than this option.
+   * @param {Boolean}       [options.truncate]  If <code>true</code> the string will pass the validation, but will be truncated.
+   * @param {String}        [options.append]    If specified AND the string is truncated, this will be appended.
+   * @param {String|RegExp} [options.regExp]    If specified, it needs to match the RegExp to validate.
+   *                                            It's applied after {@link truncate} but before {@link lowerCase} and {@link uppercase}.
+   * @param {Boolean}       [options.lowerCase] If <code>true</code>, the string will be transformed to lowerCase.
+   * @param {Boolean}       [options.upperCase] If <code>true</code>, the string will be transformed to upperCase.
    */
   function validatorStr(data, options) {
     var val = String(data);
     var ok = val != null && (!options.strict || typeCheck.isString(data));
+
+    if (options.minLength && val.length < options.minLength) {
+      ok = false;
+    }
 
     if (ok && options.maxLength && val.length > options.maxLength) {
       if (options.truncate) {
