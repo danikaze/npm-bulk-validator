@@ -24,6 +24,8 @@ module.exports.Validator = (function moduleDefinition() {
     validators: undefined,
     // if an existing validator is defined and this option is false, an exception will raise
     allowOverwriteValidator: false,
+    // `undefined` values won't be included in valid() if this option is true
+    returnUndefined: true,
   };
 
   /**
@@ -76,7 +78,9 @@ module.exports.Validator = (function moduleDefinition() {
       res = validatorDefinition(data, options);
     }
 
-    store(validator, key, data, options.canonize ? res.data : data, res.valid);
+    if (!res.valid || res.data !== undefined || options.returnUndefined) {
+      store(validator, key, data, options.canonize ? res.data : data, res.valid);
+    }
   }
 
   /**

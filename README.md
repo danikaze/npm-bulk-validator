@@ -184,6 +184,14 @@ v.str('data', undefined, {
 
 Default value: `undefined`
 
+### returnUndefined
+
+If a value is validated with `undefined`, and this option is `false`, it won't be included in the list of valid values.
+
+This is useful when we want define a schema with optional values, and we set `options.optional` to `true`.
+
+Default value: `true`
+
 ### validators
 
 List of validators to add *locally* to a new Validator when instanciated.

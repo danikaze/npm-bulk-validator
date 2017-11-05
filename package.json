@@ -22,8 +22,8 @@
     "validator"
   ],
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/danikaze/npm-bulk-validator.git"
+    "type": "git",
+    "url": "https://github.com/danikaze/npm-bulk-validator.git"
   },
   "homepage": "https://github.com/danikaze/npm-bulk-validator",
   "bugs": "https://github.com/danikaze/npm-bulk-validator/issues",
