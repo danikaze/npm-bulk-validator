@@ -277,6 +277,22 @@ describe('validator basic options', function() {
     expect(validator.valid().pass).to.equal(123);
     expect(validator.errors().fail).to.equal(0);
   });
+
+  it('shouldn\'t return undefined values', function() {
+    var validator = new Validator({ optional: true, returnUndefined: false });
+
+    validator.num('data1', 123)
+             .num('data2', undefined)
+             .num('data3', undefined, { defaultValue: 0 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid().data1).to.equal(123);
+    expect(validator.valid().data2).to.be.undefined;
+    expect(validator.valid().data3).to.equal(0);
+    expect(Object.keys(validator.valid())).to.include('data1');
+    expect(Object.keys(validator.valid())).to.include('data3');
+    expect(Object.keys(validator.valid())).to.not.include('data2');
+  });
 });
 
 describe('validator aliases basic', function() {
