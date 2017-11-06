@@ -19,6 +19,23 @@ var aliasDefinition = {
 };
 
 /*
+ * Define a schema to use in `addSchema` tests
+ */
+var schemaDefinition = {
+  name: 's1',
+  schema: {
+    foo: {
+      validator: 'str',
+    },
+    bar: {
+      validator: 'num',
+      options: { optional: true, defaultValue: 0 },
+    },
+  },
+  options: {},
+};
+
+/*
  * Define a validator for IDs, which should be integers > 0
  */
 function idValidatorDefinition(data, options) {
@@ -348,6 +365,59 @@ describe('validator aliases basic', function() {
 
     expect(function() {
       v1.addAlias('str', 'num', {});
+    }).to.throw(Error);
+  });
+});
+
+describe('validator schemas basic', function() {
+  'use strict';
+
+  it('should allow adding new schemas', function() {
+    var v1 = new Validator();
+    var v2 = new Validator();
+    var data = {
+      foo: 'foo',
+      bar: 123,
+    };
+
+    expect(v1.addSchema(schemaDefinition.name,
+                        schemaDefinition.schema,
+                        schemaDefinition.options)).to.be.equal(v1);
+    expect(v1.schema).to.be.a('function');
+
+    expect(function() { v1.schema(schemaDefinition.name, data); }).to.not.throw();
+    expect(function() { v2.schema(schemaDefinition.name, data); }).to.throw();
+  });
+
+  it('should allow adding global schemas', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var v2 = new Validator({ returnNullOnErrors: false });
+    var data = {
+      foo: 'foo',
+      bar: 123,
+    };
+
+    Validator.addSchema(schemaDefinition.name,
+                        schemaDefinition.schema,
+                        schemaDefinition.options);
+    expect(function() { v1.schema(schemaDefinition.name, data); }).to.not.throw();
+    expect(function() { v2.schema(schemaDefinition.name, data); }).to.not.throw();
+
+    expect(v1.schema(schemaDefinition.name, data).valid()).to.eql(data);
+    expect(v2.schema(schemaDefinition.name, data).valid()).to.eql(data);
+  });
+
+  it('should not allow defining new schemas if there is already one with that name', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+
+    expect(function() {
+      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
+      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
+    }).to.throw(Error);
+
+    expect(function() {
+      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
+      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
     }).to.throw(Error);
   });
 });

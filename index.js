@@ -7,6 +7,8 @@ module.exports = {};
 module.exports.Validator = (function moduleDefinition() {
   'use strict';
 
+  var hasOwnProperty = Object.prototype.hasOwnProperty;
+
   var defaultOptions = {
     // strict validation
     strict: false,
@@ -202,6 +204,7 @@ module.exports.Validator = (function moduleDefinition() {
     this.options = extend({}, defaultOptions, options);
     this.ok = {};
     this.wrong = {};
+    this.schemaList = {};
 
     if (this.options.validators) {
       for (i in this.options.validators) {
@@ -209,6 +212,9 @@ module.exports.Validator = (function moduleDefinition() {
       }
     }
   }
+
+  // Global list of defined schemas
+  Validator.schemaList = {};
 
   /**
    * Check for the objects that didn't passed the validation
@@ -306,6 +312,7 @@ module.exports.Validator = (function moduleDefinition() {
    * @param  {Function}  validatorDefinition Definition of the validator
    * @return {Validator}                     this instance to allow method chaining
    *
+   * @public
    * @see Validator.addValidator
    */
   Validator.prototype.addValidator = function addValidator(name, validatorDefinition) {
@@ -322,10 +329,55 @@ module.exports.Validator = (function moduleDefinition() {
    * @param  {Object}    [options]     Default options to pass to the validator when calling the alias
    * @return {Validator}               this instance to allow method chaining
    *
+   * @public
    * @see Validator.addValidator
    */
   Validator.prototype.addAlias = function addValidator(alias, validatorName, options) {
     Validator.addAlias(alias, validatorName, options, this);
+
+    return this;
+  };
+
+  /**
+   * Validates data against an specified schema.
+   * Properties in the `data` that are not defined in the schema will be ignored.
+   *
+   * @param  {String}    name Name of the schema to use
+   * @param  {Object}    data Data to validate as `{ key: value }`
+   * @return {Validator}      this instance to allow method chaining
+   *
+   * @public
+   */
+  Validator.prototype.schema = function schema(name, data) {
+    var schemaDefinition = this.schemaList[name] || Validator.schemaList[name];
+    var key;
+    var property;
+
+    if (!schemaDefinition) {
+      throw new Error('Schema not found');
+    }
+
+    this.reset();
+    for (key in schemaDefinition) {
+      property = schemaDefinition[key];
+      this[property.validator](key, data[key], property.options);
+    }
+
+    return this;
+  };
+
+  /**
+   * Add a custom data validator to a {@link Validator} instance
+   *
+   * @param  {String}    schemaName    Name of the alias (new validator)
+   * @param  {String}    schema        Definition of the schema as `[{ name, validator, options }]`
+   * @param  {Object}    [options]     Default options to pass to the validator when calling any of the alias
+   * @return {Validator}               this instance to allow method chaining
+   *
+   * @see Validator.addSchema
+   */
+  Validator.prototype.addSchema = function addSchema(schemaName, schema, options) {
+    Validator.addSchema(schemaName, schema, options, this);
 
     return this;
   };
@@ -520,6 +572,38 @@ module.exports.Validator = (function moduleDefinition() {
       Validator.addAlias(definition.alias, definition.validator, definition.options);
     }
   }());
+
+  /**
+   * Add a custom data validator to a {@link Validator} instance
+   *
+   * @param  {String}    schemaName    Name of the alias (new validator)
+   * @param  {String}    schema        Definition of the schema as `{ key: { validator, options } }`
+   * @param  {Object}    [options]     Default options to pass to the validator when calling any of the alias
+   * @param  {Validator} [validator]   If not specified, the {@link alias} will be added to the prototype.
+   *                                   If a validator is specified, it will added only for that validator instance.
+   *
+   * @public
+   */
+  Validator.addSchema = function addSchema(schemaName, schema, options, validator) {
+    var target = (validator && validator.schemaList) || Validator.schemaList;
+    var definition = {};
+    var property;
+    var key;
+
+    if (target[schemaName]) {
+      throw new Error('The schema ' + schemaName + ' is already defined');
+    }
+
+    for (key in schema) {
+      property = schema[key];
+      definition[key] = {
+        validator: property.validator,
+        options: extend({}, options, property.options),
+      };
+    }
+
+    target[schemaName] = definition;
+  };
 
   // make defaultOptions public
   Validator.defaultOptions = defaultOptions;
