@@ -13,14 +13,6 @@ module.exports = {
     'spaced-comment': ['error', 'always', {
       exceptions: ['/'],
     }],
-    /*
-    'key-spacing': ['error', {
-        'align': {
-            'beforeColon': false,
-            'afterColon' : true,
-            'on'         : 'colon'
-        }
-    }],*/
     'keyword-spacing': ['error', {
       after: true,
     }],

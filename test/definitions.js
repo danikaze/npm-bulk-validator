@@ -1,5 +1,5 @@
 var expect = require('chai').expect;
-var Validator = require('../index').Validator;
+var Validator = require('../src/index').Validator;
 
 describe('validator basic definitions', function() {
   'use strict';

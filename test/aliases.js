@@ -1,5 +1,5 @@
 var expect = require('chai').expect;
-var Validator = require('../index').Validator;
+var Validator = require('../src/index').Validator;
 
 describe('basic definitions of the aliases', function() {
   'use strict';

@@ -1,10 +1,11 @@
+/* eslint-disable eqeqeq */
 var typeCheck = require('vanilla-type-check');
 var truncate = require('truncate');
 
 /*
  * List of validators added in the Validator prototype by default.
  */
-module.exports = (function() {
+module.exports = (function definitions() {
   'use strict';
 
   var validatorDefinitions = {

@@ -1,7 +1,7 @@
 /*
  * List of aliases: give a name to validators with predefined options
  */
-module.exports = (function() {
+module.exports = (function defineAliases() {
   'use strict';
 
   var aliases = [{
