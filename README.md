@@ -21,6 +21,7 @@ Data validator which allows:
     - [stopAfterFirstError](#stopafterfirsterror)
     - [optional](#optional)
     - [defaultValue](#defaultvalue)
+    - [returnUndefined](#returnundefined)
     - [validators](#validators)
     - [allowOverwriteValidator](#allowoverwritevalidator)
   - [List of default validators](#list-of-default-validators)
@@ -38,6 +39,7 @@ Data validator which allows:
     - [positiveInt](#positiveint)
   - [Defining aliases](#defining-aliases)
   - [Defining custom validators](#defining-custom-validators)
+  - [Defining and using schemas](#defining-and-using-schemas)
   - [Running tests](#running-tests)
 
 ## Installation
