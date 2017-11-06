@@ -589,6 +589,58 @@ typeof v2.int; // 'undefined'
 
 You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
 
+## Defining and using schemas
+
+A schema is nothing else than a set of validations. It's very useful when trying to validate the same set of data everytime (i.e. data to be stored in a database, or data for a data model coming from user input).
+
+As the validators and aliases, a schema can be defined locally to a Validator instance, or globally to the Validator class itself.
+
+```js
+var schemaDefinition = {
+  foo: {
+    validator: 'str'
+  },
+  bar: {
+    validator: 'num',
+    options: { defaultValue: 0 },
+  },
+};
+var schemaOptions = {
+  optional: true,
+};
+
+// defining a local validator schema
+var v1 = new Validator();
+var v2 = new Validator();
+v1.addSchema('local-schema', schemaDefinition, schemaOptions);
+
+// defining a global validator schema
+Validator.addSchema('global-schema', schemaDefinition, schemaOptions);
+
+// now we can use the schema like this:
+var data = {
+  foo: 'some text',
+  bar: 123,
+};
+
+// we can use the previously defined local schema in v1
+v1.schema('local-schema', data);
+v1.valid(); // { foo: 'some text', bar: 123 }
+
+// also, the global one in v1 and v2
+v1.schema('global-schema', data);
+v2.schema('global-schema', data);
+
+// but using a local schema in a different instance will throw an error
+v2.schema('local-schema', data); // error
+
+// note that everytime we call .schema(), a .reset() call is done internally:
+v1.schema('local-schema', { foo: 'abc', bar: 123 });
+v1.valid(); // { foo: 'abc', bar: 123 }
+v1.schema('local-schema', { foo: 'abc' });
+v1.valid(); // { foo: 'abc', bar: 0 }
+```
+
 ## Running tests
 
 Install dev dependencies
