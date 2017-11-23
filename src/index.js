@@ -78,7 +78,7 @@ module.exports.Validator = (function moduleDefinition() {
       res = validatorDefinition(data, options);
     }
 
-    if (!res.valid || res.data !== undefined || options.returnUndefined) {
+    if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
       store(validator, key, data, options.canonize ? res.data : data, res.valid);
     }
   }
@@ -134,7 +134,9 @@ module.exports.Validator = (function moduleDefinition() {
       ok = false;
     }
 
-    store(validator, key, data, val, ok);
+    if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      store(validator, key, data, val, ok);
+    }
   }
 
   /**
@@ -186,7 +188,9 @@ module.exports.Validator = (function moduleDefinition() {
       ok = false;
     }
 
-    store(validator, key, data, val, ok);
+    if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      store(validator, key, data, val, ok);
+    }
   }
 
   /**
