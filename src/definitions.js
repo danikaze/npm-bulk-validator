@@ -1,5 +1,9 @@
 /* eslint-disable eqeqeq */
-var typeCheck = require('vanilla-type-check');
+var isString = require('vanilla-type-check/isString').isString;
+var isNumber = require('vanilla-type-check/isNumber').isNumber;
+var isNumeric = require('vanilla-type-check/isNumeric').isNumeric;
+var isFunction = require('vanilla-type-check/isFunction').isFunction;
+var isObject = require('vanilla-type-check/isObject').isObject;
 var truncate = require('truncate');
 
 /*
@@ -49,7 +53,7 @@ module.exports = (function definitions() {
     if (options.strict) {
       val = data;
       ok = typeof data === 'boolean';
-    } else if (typeCheck.isString(data)) {
+    } else if (isString(data)) {
       ok = true;
       if (data === 'false' || data == '0') {
         val = false;
@@ -86,8 +90,8 @@ module.exports = (function definitions() {
     var val;
     var ok;
 
-    ok = options.strict ? typeCheck.isNumber(data)
-                        : typeCheck.isNumeric(data) ||
+    ok = options.strict ? isNumber(data)
+                        : isNumeric(data) ||
                           data === Infinity ||
                           data === -Infinity;
 
@@ -119,7 +123,7 @@ module.exports = (function definitions() {
     }
 
     if (ok && options.regExp) {
-      if (typeCheck.isString(options.regExp)) {
+      if (isString(options.regExp)) {
         options.regExp = new RegExp(options.regExp);
       }
       ok = options.regExp.exec(data) !== null;
@@ -145,7 +149,7 @@ module.exports = (function definitions() {
    */
   function validatorStr(data, options) {
     var val = String(data);
-    var ok = val != null && (!options.strict || typeCheck.isString(data));
+    var ok = val != null && (!options.strict || isString(data));
 
     if (options.minLength && val.length < options.minLength) {
       ok = false;
@@ -181,7 +185,7 @@ module.exports = (function definitions() {
   function validatorFn(data, options) {
     return {
       data: data,
-      valid: typeCheck.isFunction(data),
+      valid: isFunction(data),
     };
   }
 
@@ -194,7 +198,7 @@ module.exports = (function definitions() {
     var ok = false;
     var i;
 
-    if (!options || !typeCheck.isObject(options.enumerated)) {
+    if (!options || !isObject(options.enumerated)) {
       throw Error('options.enumerated is not an Object');
     }
 
@@ -224,7 +228,7 @@ module.exports = (function definitions() {
     var ok = false;
     var i;
 
-    if (!options || !typeCheck.isObject(options.enumerated)) {
+    if (!options || !isObject(options.enumerated)) {
       throw Error('options.enumerated is not an Object');
     }
 
@@ -250,7 +254,7 @@ module.exports = (function definitions() {
     var ok = false;
     var i;
 
-    if (!options || !typeCheck.isObject(options.enumerated)) {
+    if (!options || !isObject(options.enumerated)) {
       throw Error('options.enumerated is not an Object');
     }
 

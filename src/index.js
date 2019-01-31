@@ -1,5 +1,9 @@
 var extend = require('extend');
-var typeCheck = require('vanilla-type-check');
+var isArray = require('vanilla-type-check/isArray').isArray;
+var isEmpty = require('vanilla-type-check/isEmpty').isEmpty;
+var isFunction = require('vanilla-type-check/isFunction').isFunction;
+var isObject = require('vanilla-type-check/isObject').isObject;
+var isString = require('vanilla-type-check/isString').isString;
 var validatorDefinitions = require('./definitions');
 var aliases = require('./aliases');
 
@@ -65,7 +69,7 @@ module.exports.Validator = (function moduleDefinition() {
 
     options = extend({}, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
     }
 
@@ -106,11 +110,11 @@ module.exports.Validator = (function moduleDefinition() {
 
     options = extend({}, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
     }
 
-    if (typeCheck.isArray(data)) {
+    if (isArray(data)) {
       val = data.slice();
       for (i = 0, n = val.length; i < n; i++) {
         res = validatorDefinition(val[i], options);
@@ -160,11 +164,11 @@ module.exports.Validator = (function moduleDefinition() {
 
     options = extend({}, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
     }
 
-    if (typeCheck.isObject(data)) {
+    if (isObject(data)) {
       val = extend(true, {}, data);
       for (i in data) {
         res = validatorDefinition(val[i], options);
@@ -226,7 +230,7 @@ module.exports.Validator = (function moduleDefinition() {
    * @public
    */
   Validator.prototype.errors = function errors() {
-    return typeCheck.isEmptyObject(this.wrong) ? null : this.wrong;
+    return isEmpty(this.wrong) ? null : this.wrong;
   };
 
   /**
@@ -249,11 +253,11 @@ module.exports.Validator = (function moduleDefinition() {
     var v = null;
     var i;
 
-    if (typeof base !== 'undefined' && !typeCheck.isObject(base)) {
+    if (typeof base !== 'undefined' && !isObject(base)) {
       throw new Error('base needs to be a plain object if specified');
     }
 
-    if (!this.options.returnNullOnErrors || typeCheck.isEmptyObject(this.wrong)) {
+    if (!this.options.returnNullOnErrors || isEmpty(this.wrong)) {
       if (base) {
         for (i in this.ok) {
           base[i] = this.ok[i];
@@ -440,11 +444,11 @@ module.exports.Validator = (function moduleDefinition() {
     /*
      * Data validation
      */
-    if (!name || !typeCheck.isString(name)) {
+    if (!name || !isString(name)) {
       throw new Error('the specified name is not valid');
     }
 
-    if (!typeCheck.isFunction(validatorDefinition)) {
+    if (!isFunction(validatorDefinition)) {
       throw new Error('validatorDefinition needs to be a function');
     }
 

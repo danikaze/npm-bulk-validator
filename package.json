@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha --reporter spec",
-    "lint": "eslint --ext .js ./src ./test"
+    "lint": "eslint --ext .js ./src ./test && npm run test"
   },
   "pre-commit": [
     "lint"
@@ -37,9 +37,9 @@
   },
   "license": "ISC",
   "dependencies": {
-    "extend": "^3.0.0",
-    "truncate": "^2.0.0",
-    "vanilla-type-check": "^1.0.0"
+    "extend": "^3.0.2",
+    "truncate": "^2.0.1",
+    "vanilla-type-check": "^2.0.1"
   },
   "devDependencies": {
     "chai": "^3.5.0",
