@@ -19,9 +19,13 @@ export interface ValidatorOptions {
     allowOverwriteValidator: boolean;
     /** `undefined` values won't be included in valid() if this option is true */
     returnUndefined: boolean;
-    /** Functions to apply (in order) to the data *before* validating. Validation and canonization is applied to the result */
+    /** Functions to apply (in order) to the raw data *before* validating. Validation and canonization is applied to the result */
     preTransform: Transform | Transform[];
-    /** Functions to apply (in order) to the data *after* validating. It affects raw and canonized data. Must not modify the original data */
+    /** Functions to apply (in order) to **each** data item *before* validating. Validation and canonization is applied to the result */
+    preTransformItem: Transform | Transform[];
+    /** Functions to apply (in order) to **each** data item *after* validating. It affects raw and canonized data */
+    postTransformItem: Transform | Transform[];
+    /** Functions to apply (in order) to the data *after* validating. It affects raw and canonized data */
     postTransform: Transform | Transform[];
     /* Other options are possible in each validator */
     [key: string]: any;

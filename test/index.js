@@ -1,4 +1,6 @@
 var expect = require('chai').expect;
+var isArray = require('vanilla-type-check/isArray').isArray;
+var isObject = require('vanilla-type-check/isObject').isObject;
 var Validator = require('../src/index').Validator;
 
 var basicValidator = new Validator({ returnNullOnErrors: false });
@@ -309,6 +311,237 @@ describe('validator basic options', function() {
     expect(Object.keys(validator.valid())).to.include('data1');
     expect(Object.keys(validator.valid())).to.include('data3');
     expect(Object.keys(validator.valid())).to.not.include('data2');
+  });
+});
+
+describe('validator transform functions', function() {
+  'use strict';
+
+  function toInt(data) {
+      return parseInt(data, 10);
+  }
+
+  function splitToArray(data) {
+    return data.split(',').map(function (item) { return item.trim(); });
+  }
+
+  function splitToObject(data) {
+    var c = 'a'.charCodeAt(0);
+    var res = {};
+
+    splitToArray(data).forEach((item) => {
+      res[String.fromCharCode(c++)] = item;
+    });
+
+    return res;
+  }
+
+  function prefixer(str) {
+    return function(data) {
+      return str + data;
+    };
+  }
+
+  function postfixer(str) {
+    return function(data) {
+      return data + str;
+    };
+  }
+
+  function join(data) {
+    var res;
+
+    if (isArray(data)) {
+      res = data.join(', ');
+    } else if (isObject(data)) {
+      res = Object.keys(data)
+        .map(function (key) { return data[key]; })
+        .join(', ');
+    } else {
+      res = data;
+    }
+    return '{' + res + '}';
+  }
+
+  function triggerError() {
+    throw new Error();
+  }
+
+  it('should pre-transform the raw data', function() {
+    var validator = new Validator({
+      canonize: false,
+    });
+
+    validator.num('single', '123', { preTransform: toInt });
+    validator.numArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.numObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: 123,
+      array: ['1', '2', '3'],
+      object: { a: '1', b: '2', c: '3' },
+    });
+  });
+
+  it('should pre-transform each data item', function() {
+    var validator = new Validator({
+      strict: true,
+      preTransformItem: toInt,
+    });
+
+    validator.num('single', '123');
+    validator.numArray('array', ['1', '2', '3']);
+    validator.numObject('object', { a: '1', b: '2', c: '3' });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: 123,
+      array: [1, 2, 3],
+      object: { a: 1, b: 2, c: 3 },
+  });
+  });
+
+  it('should pre-transform the raw data and then each data item', function() {
+    var validator = new Validator({
+      preTransformItem: prefixer('('),
+    });
+
+    validator.str('single', 'abc');
+    validator.strArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.strObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '(abc',
+      array: ['(1', '(2', '(3'],
+      object: { a: '(1', b: '(2', c: '(3' },
+    });
+  });
+
+  it('should post-transform the raw data', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransform: join,
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{123}',
+      array: '{1, 2, 3}',
+      object: '{1, 2, 3}',
+    });
+  });
+
+  it('should post-transform each data item', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransformItem: prefixer('('),
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '(123',
+      array: ['(1', '(2', '(3'],
+      object: { a: '(1', b: '(2', c: '(3' },
+    });
+  });
+
+  it('should post-transform each data item and then the resulting data', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransformItem: prefixer('('),
+      postTransform: join,
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{(123}',
+      array: '{(1, (2, (3}',
+      object: '{(1, (2, (3}',
+    });
+  });
+
+  it('should combine pre and post transforms', function() {
+    var validator = new Validator({
+      strict: true,
+      preTransformItem: toInt,
+      postTransformItem: prefixer('('),
+      postTransform: join,
+    });
+
+    validator.num('single', '123');
+    validator.numArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.numObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{(123}',
+      array: '{(1, (2, (3}',
+      object: '{(1, (2, (3}',
+    });
+  });
+
+  it('should not validate nor trigger error when transform fails', function() {
+    var validator = new Validator();
+
+    validator.num('ok', 123);
+    expect(function() {
+      validator.num('d1', 1, { preTransform: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d2', 2, { preTransformItem: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d3', 3, { postTransform: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d4', 4, { postTransformItem: triggerError });
+    }).to.not.throw(Error);
+
+    expect(validator.valid()).to.eql({ ok: 123 });
+    expect(validator.errors()).to.eql({
+      d1: 1,
+      d2: 2,
+      d3: 3,
+      d4: 4,
+    });
+  });
+
+  it('should apply multiple transformation functions', function() {
+    var validator = new Validator();
+    var pre = [prefixer('['), prefixer('{')];
+    var preItem = [prefixer('<'), prefixer('~')];
+    var post = [postfixer('}'), postfixer(']')];
+    var postItem = [postfixer('+'), postfixer('>')];
+
+    validator.str('pre', 'abc', { preTransform: pre });
+    validator.strArray('preArray', ['a', 'b'], { preTransformItem: preItem });
+    validator.strObject('preObject', { a: 'a', b: 'b' }, { preTransformItem: preItem });
+    validator.str('post', 'abc', { preTransform: post });
+    validator.strArray('postArray', ['a', 'b'], { preTransformItem: postItem });
+    validator.strObject('postObject', { a: 'a', b: 'b' }, { postTransformItem: postItem });
+
+    expect(validator.valid()).to.eql({
+      pre: '{[abc',
+      preArray: ['~<a', '~<b'],
+      preObject: { a: '~<a', b: '~<b' },
+      post: 'abc}]',
+      postArray: ['a+>', 'b+>'],
+      postObject: { a: 'a+>', b: 'b+>' },
+});
   });
 });
 

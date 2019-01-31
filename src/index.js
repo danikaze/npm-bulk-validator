@@ -12,24 +12,28 @@ module.exports.Validator = (function moduleDefinition() {
   'use strict';
 
   var defaultOptions = {
-    // strict validation
+    /** strict validation */
     strict: false,
-    // convert data to its canonical form
+    /** convert data to its canonical form */
     canonize: true,
-    // if there are any errors, {@link R.Validator#valid} returns null
+    /** if there are any errors, {@link R.Validator#valid} returns null */
     returnNullOnErrors: true,
-    // if true, it will not validate any other object after the first error
+    /** if true, it will not validate any other object after the first error */
     stopAfterFirstError: false,
-    // if true, a undefined value will validate
+    /** if true, a undefined value will validate */
     optional: false,
-    // value to return if doesn't validates and {@link options.optional} is true
+    /** value to return if doesn't validates and {@link options.optional} is true */
     defaultValue: undefined,
-    // object with the default validators to load with {@link R.Validator.addValidator}
+    /** object with the default validators to load with {@link R.Validator.addValidator} */
     validators: undefined,
-    // if an existing validator is defined and this option is false, an exception will raise
+    /** if an existing validator is defined and this option is false, an exception will raise */
     allowOverwriteValidator: false,
-    // `undefined` values won't be included in valid() if this option is true
+    /** `undefined` values won't be included in valid() if this option is true */
     returnUndefined: true,
+    /** Functions to apply (in order) to the data *before* validating. Validation and canonization is applied to the result */
+    preTransform: undefined,
+    /** Functions to apply (in order) to the data *after* validating. It affects raw and canonized data. Must not modify the original data */
+    postTransform: undefined,
   };
 
   /**
@@ -53,6 +57,31 @@ module.exports.Validator = (function moduleDefinition() {
   }
 
   /**
+   * Apply a transformation or a list of them to the given data
+   *
+   * @param  {any}                 data
+   * @param  {function|function[]} transformation
+   * @return {any}
+   */
+  function applyTransformation(data, transformation) {
+    var i;
+
+    if (!transformation) {
+      return data;
+    }
+
+    if (isArray(transformation)) {
+      for (i = 0; i < transformation.length; i++) {
+        data = transformation[i](data);
+      }
+    } else {
+      data = transformation(data);
+    }
+
+    return data;
+  }
+
+  /**
    * Validates a simple data with the specified validator definition
    *
    * @param {Validator} validator
@@ -66,10 +95,19 @@ module.exports.Validator = (function moduleDefinition() {
    */
   function validateData(validator, validatorDefinition, key, data, options) {
     var res;
+    var td; // transformed data
 
     options = extend({}, validator.options, options);
 
     if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
+      return;
+    }
+
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+      data = applyTransformation(data, options && options.preTransformItem);
+    } catch (e) {
+      store(validator, key, data, data, false);
       return;
     }
 
@@ -83,7 +121,15 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
-      store(validator, key, data, options.canonize ? res.data : data, res.valid);
+      td = options.canonize ? res.data : data;
+      try {
+        td = applyTransformation(td, options && options.postTransformItem);
+        td = applyTransformation(td, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
+      store(validator, key, data, td, res.valid);
     }
   }
 
@@ -104,6 +150,7 @@ module.exports.Validator = (function moduleDefinition() {
   function validateArray(validator, validatorDefinition, key, data, options) {
     var ok = true;
     var val;
+    var item;
     var res;
     var i;
     var n;
@@ -114,10 +161,23 @@ module.exports.Validator = (function moduleDefinition() {
       return;
     }
 
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+    } catch (e) {
+      store(validator, key, data, data, false);
+      return;
+    }
+
     if (isArray(data)) {
       val = data.slice();
       for (i = 0, n = val.length; i < n; i++) {
-        res = validatorDefinition(val[i], options);
+        try {
+          item = applyTransformation(val[i], options && options.preTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
+        }
+        res = validatorDefinition(item, options);
 
         if (!res.valid) {
           ok = false;
@@ -126,6 +186,13 @@ module.exports.Validator = (function moduleDefinition() {
 
         if (options.canonize) {
           val[i] = res.data;
+        }
+
+        try {
+          val[i] = applyTransformation(val[i], options && options.postTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
         }
       }
     } else if (data === undefined && options.optional) {
@@ -139,6 +206,12 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      try {
+        val = applyTransformation(val, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
       store(validator, key, data, val, ok);
     }
   }
@@ -159,6 +232,7 @@ module.exports.Validator = (function moduleDefinition() {
   function validateObject(validator, validatorDefinition, key, data, options) {
     var ok = true;
     var val;
+    var item;
     var res;
     var i;
 
@@ -168,10 +242,23 @@ module.exports.Validator = (function moduleDefinition() {
       return;
     }
 
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+    } catch (e) {
+      store(validator, key, data, data, false);
+      return;
+    }
+
     if (isObject(data)) {
       val = extend(true, {}, data);
       for (i in data) {
-        res = validatorDefinition(val[i], options);
+        try {
+          item = applyTransformation(val[i], options && options.preTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
+        }
+        res = validatorDefinition(item, options);
 
         if (!res.valid) {
           ok = false;
@@ -180,6 +267,12 @@ module.exports.Validator = (function moduleDefinition() {
 
         if (options.canonize) {
           val[i] = res.data;
+        }
+        try {
+          val[i] = applyTransformation(val[i], options && options.postTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
         }
       }
     } else if (data === undefined && options.optional) {
@@ -193,6 +286,12 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      try {
+        val = applyTransformation(val, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
       store(validator, key, data, val, ok);
     }
   }
@@ -604,7 +703,7 @@ module.exports.Validator = (function moduleDefinition() {
       property = schema[key];
       definition[key] = {
         validator: property.validator,
-        options: extend({}, options, property.options),
+        options: options,
       };
     }
 

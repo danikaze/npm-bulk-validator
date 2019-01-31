@@ -4,7 +4,8 @@
   "description": "Customizable input validator",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --reporter spec",
+    "test": "mocha --reporter spec test",
+    "test-dev": "mocha --reporter spec --inspect-brk test",
     "lint": "eslint --ext .js ./src ./test && npm run test"
   },
   "pre-commit": [
