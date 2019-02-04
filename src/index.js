@@ -34,6 +34,10 @@ module.exports.Validator = (function moduleDefinition() {
     preTransform: undefined,
     /** Functions to apply (in order) to the data *after* validating. It affects raw and canonized data. Must not modify the original data */
     postTransform: undefined,
+    /** If `true`, passed data (to an schema) without an assigned validator, will be included -as it is- in the result, ommitted otherwise */
+    includeExternal: false,
+    /** If `true`, passed data (to an schema) without an assigned validator will not validate (`includeExternal` option will be ignored then) */
+    externalShouldFail: true,
   };
 
   /**
@@ -448,16 +452,19 @@ module.exports.Validator = (function moduleDefinition() {
    * Validates data against an specified schema.
    * Properties in the `data` that are not defined in the schema will be ignored.
    *
-   * @param  {String}    name Name of the schema to use
-   * @param  {Object}    data Data to validate as `{ key: value }`
-   * @return {Validator}      this instance to allow method chaining
+   * @param  {String}    name    Name of the schema to use
+   * @param  {Object}    data    Data to validate as `{ key: value }`
+   * @param  {Object}    options Extra options to pass to the validators
+   * @return {Validator}         this instance to allow method chaining
    *
    * @public
    */
-  Validator.prototype.schema = function schema(name, data) {
+  Validator.prototype.schema = function schema(name, data, options) {
     var schemaDefinition = this.schemaList[name] || Validator.schemaList[name];
+    var opt = extend({}, defaultOptions, this.options, options);
     var key;
     var property;
+    var value;
 
     if (!schemaDefinition) {
       throw new Error('Schema not found');
@@ -467,6 +474,15 @@ module.exports.Validator = (function moduleDefinition() {
     for (key in schemaDefinition) {
       property = schemaDefinition[key];
       this[property.validator](key, data[key], property.options);
+    }
+
+    if (opt.includeExternal) {
+      for (key in data) {
+        if (!schemaDefinition[key]) {
+          value = data[key];
+          store(this, key, value, value, !opt.externalShouldFail);
+        }
+      }
     }
 
     return this;
@@ -705,7 +721,7 @@ module.exports.Validator = (function moduleDefinition() {
       property = schema[key];
       definition[key] = {
         validator: property.validator,
-        options: property.options,
+        options: extend({}, options, property.options),
       };
     }
 

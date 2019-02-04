@@ -24,10 +24,13 @@ Data validator which allows:
     - [returnUndefined](#returnundefined)
     - [validators](#validators)
     - [allowOverwriteValidator](#allowoverwritevalidator)
+    - [includeExternal](#includeexternal)
+    - [externalShouldFail](#externalshouldfail)
     - [preTransform](#pretransform)
     - [preTransformItem](#pretransformitem)
     - [postTransformItem](#posttransformitem)
     - [postTransform](#posttransform)
+  - [Notes about transformation functions](#notesabouttransformationfunctions)
   - [List of default validators](#list-of-default-validators)
     - [defined](#defined)
     - [bool](#bool)
@@ -228,9 +231,71 @@ This option protects the already created validators.
 Set it to `true` if you wanna get rid of any of them or override its behavior with a custom one.
 
 **Note:**
-it will raise an `Error` if you try to override any method with this option set to `false`.
+Trying to override any method with this option set to `false` will throw an `Error`.
 
 Default value: `false`
+
+### includeExternal
+
+This option allows to return the data (in `valid()` or `errors()` depending on `externalShouldFail` option) instead of ignoring the data without a definition when validating objects in an schema.
+
+Example
+
+```javascript
+var v = new Validator();
+v.addSchema('test', {
+  foo: { validator: 'num' },
+  bar: { validator: 'str' },
+});
+var data = {
+  foo: 123,
+  bar: 'xyz',
+  other: 'external'
+};
+
+v.schema('test', data);
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === null
+
+v.schema('test', data, { includeExternal: true });
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === { other: 'external' }
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: false });
+// v.valid() === { foo: 123, bar: 'xyz', other: 'external' }
+// v.error() === null
+```
+
+Default value: `false`
+
+### externalShouldFail
+
+This option is only used when `includeExternal` is `true` (otherwise external values are just ignored).
+
+By default, external values will fail the validation as they are not defined in the schema, but setting this option to `false` will return them in the `valid()` result:
+
+```javascript
+var v = new Validator();
+v.addSchema('test', {
+  foo: { validator: 'num' },
+  bar: { validator: 'str' },
+});
+var data = {
+  foo: 123,
+  bar: 'xyz',
+  other: 'external'
+};
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: true });
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === { other: 'external' }
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: false });
+// v.valid() === { foo: 123, bar: 'xyz', other: 'external' }
+// v.error() === null
+```
+
+Default value: `true`
 
 ### preTransform
 
@@ -748,6 +813,10 @@ v1.schema('local-schema', { foo: 'abc', bar: 123 });
 v1.valid(); // { foo: 'abc', bar: 123 }
 v1.schema('local-schema', { foo: 'abc' });
 v1.valid(); // { foo: 'abc', bar: 0 }
+
+// extra local options can also be passed to schema validations
+v1.schema('local-schema', { foo: 'abc', bar: '123' }, { canonize: false });
+v1.valid(); // { foo: 'abc', bar: '123' }
 ```
 
 ## Running tests
@@ -766,3 +835,5 @@ npm install -d && npm test
 - Fixed: default options behavior. Default options now get applied properly even if they change after defining a validator.
 - Fixed: `allowOverwriteValidator` now works for aliases and schemas too.
 - Fixed: Schemas now use properly options specified at the definition time, and local options for each property validation.
+- Added new schema options: `includeExternal` and `externalShouldFail`.
+- Added local options for schema validations (as a new 3rd parameter).

@@ -763,6 +763,50 @@ describe('validator schemas basic', function() {
     expect(v1.schema(schemaDefinition.name, data).valid()).to.eql(data);
     expect(v2.schema(schemaDefinition.name, data).valid()).to.eql(data);
   });
+
+  it('should not include external data if includeExternal by default', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
+
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data);
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123 });
+  });
+
+  it('should include external data if includeExternal is true (error by default)', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
+
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data, { includeExternal: true });
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123 });
+    expect(v1.errors()).to.eql({ other: 'external' });
+  });
+
+  it('should include external data if includeExternal is true'
+    + ' (valid if externalShouldFail is false)', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
+
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data, { includeExternal: true, externalShouldFail: false });
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123, other: 'external' });
+  });
 });
 
 describe('default options', function() {
