@@ -97,7 +97,7 @@ module.exports.Validator = (function moduleDefinition() {
     var res;
     var td; // transformed data
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
     if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
@@ -155,7 +155,7 @@ module.exports.Validator = (function moduleDefinition() {
     var i;
     var n;
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
     if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
@@ -236,7 +236,7 @@ module.exports.Validator = (function moduleDefinition() {
     var res;
     var i;
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
     if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
@@ -306,7 +306,7 @@ module.exports.Validator = (function moduleDefinition() {
   function Validator(options) {
     var i;
 
-    this.options = extend({}, defaultOptions, options);
+    this.options = options || {};
     this.ok = {};
     this.wrong = {};
     this.schemaList = {};

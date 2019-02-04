@@ -658,7 +658,7 @@ v.valid();  // { pass: 8, odd: 7 }
 v.errors(); // { fail: '-3,2,8' }
 ```
 
-You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/definitions.js)
+You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/src/definitions.js)
 
 ## Defining custom aliases
 
@@ -696,7 +696,7 @@ typeof v1.int; // 'function'
 typeof v2.int; // 'undefined'
 ```
 
-You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
+You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/src/aliases.js)
 
 ## Defining and using schemas
 
@@ -763,3 +763,4 @@ npm install -d && npm test
 ### 1.1.0
 
 - Added `preTransform` and `postTransform` optional callbacks to validators
+- Fixed: default options behavior. Default options now get applied properly even if they change after defining a validator.

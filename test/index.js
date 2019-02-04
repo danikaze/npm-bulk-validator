@@ -318,7 +318,7 @@ describe('validator transform functions', function() {
   'use strict';
 
   function toInt(data) {
-      return parseInt(data, 10);
+    return parseInt(data, 10);
   }
 
   function splitToArray(data) {
@@ -399,7 +399,7 @@ describe('validator transform functions', function() {
       single: 123,
       array: [1, 2, 3],
       object: { a: 1, b: 2, c: 3 },
-  });
+    });
   });
 
   it('should pre-transform the raw data and then each data item', function() {
@@ -541,7 +541,7 @@ describe('validator transform functions', function() {
       post: 'abc}]',
       postArray: ['a+>', 'b+>'],
       postObject: { a: 'a+>', b: 'b+>' },
-});
+    });
   });
 });
 
@@ -652,5 +652,143 @@ describe('validator schemas basic', function() {
       v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
       v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
     }).to.throw(Error);
+  });
+});
+
+describe('default options', function() {
+  'use strict';
+
+  var v1;
+  var v2;
+  var schema = {
+    num: {
+      validator: 'num',
+    },
+    str: {
+      validator: 'positiveInt',
+    },
+  };
+  var schemaName = 'schemaDefaultTest';
+
+  it('should apply default options in a validator if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.num('num', 1);
+    v2.num('str', '1');
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in a validator even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
+  });
+
+  it('should apply default options in an alias if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.positiveInt('num', 1);
+    v2.positiveInt('str', '1');
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in an alias even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
+  });
+
+  it('should apply default options in a schema if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.addSchema(schemaName, schema);
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.addSchema(schemaName, schema);
+    v2.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in a schema even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.addSchema(schemaName, schema);
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
   });
 });
