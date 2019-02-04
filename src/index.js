@@ -691,11 +691,12 @@ module.exports.Validator = (function moduleDefinition() {
    */
   Validator.addSchema = function addSchema(schemaName, schema, options, validator) {
     var target = (validator && validator.schemaList) || Validator.schemaList;
+    var opt = validator ? validator.options : defaultOptions;
     var definition = {};
     var property;
     var key;
 
-    if (target[schemaName]) {
+    if (!opt.allowOverwriteValidator && target[schemaName]) {
       throw new Error('The schema ' + schemaName + ' is already defined');
     }
 
@@ -703,7 +704,7 @@ module.exports.Validator = (function moduleDefinition() {
       property = schema[key];
       definition[key] = {
         validator: property.validator,
-        options: options,
+        options: property.options,
       };
     }
 

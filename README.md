@@ -762,5 +762,6 @@ npm install -d && npm test
 
 ### 1.1.0
 
-- Added `preTransform` and `postTransform` optional callbacks to validators
+- Added `preTransform` and `postTransform` optional callbacks to validators.
 - Fixed: default options behavior. Default options now get applied properly even if they change after defining a validator.
+- Fixed: `allowOverwriteValidator` now works for aliases and schemas too.

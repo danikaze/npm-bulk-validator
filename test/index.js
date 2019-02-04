@@ -37,6 +37,20 @@ var schemaDefinition = {
   options: {},
 };
 
+var schemaDefinition2 = {
+  name: 's2',
+  schema: {
+    foo: {
+      validator: 'str',
+    },
+    bar: {
+      validator: 'num',
+      options: { optional: true, defaultValue: 1 },
+    },
+  },
+  options: {},
+};
+
 /*
  * Define a validator for IDs, which should be integers > 0
  */
@@ -243,8 +257,8 @@ describe('validator basic options', function() {
     expect(validator.errors().data3).to.equal('bar');
   });
 
-  it('should not allow overwriting a validator' +
-     ' if options.allowOverwriteValidator is false', function() {
+  it('should allow overwriting a validator' +
+     ' if options.allowOverwriteValidator is true', function() {
     var validator = new Validator({ allowOverwriteValidator: true });
 
     expect(validator.num).not.to.be.undefined;
@@ -252,18 +266,79 @@ describe('validator basic options', function() {
     expect(validator.errors()).to.be.null;
     validator.reset();
 
-    validator.addValidator('num', idValidatorDefinition);
+    expect(function() {
+      validator.addValidator('num', idValidatorDefinition);
+    }).to.not.throw(Error);
     validator.num('zero', 0);
     expect(validator.errors()).not.to.be.null;
   });
 
-  it('should allow overwriting a validator' +
+  it('should not allow overwriting a validator' +
      ' if options.allowOverwriteValidator is false', function() {
     var validator = new Validator({ allowOverwriteValidator: false });
 
     expect(validator.num).not.to.be.undefined;
     expect(function() {
       validator.addValidator('num', idValidatorDefinition);
+    }).to.throw(Error);
+  });
+
+  it('should allow overwriting an alias' +
+     ' if options.allowOverwriteValidator is true', function() {
+    var validator = new Validator({ allowOverwriteValidator: true });
+
+    expect(validator.notEmptyStr).not.to.be.undefined;
+    validator.notEmptyStr('str', 'xxx');
+    expect(validator.errors()).to.be.null;
+    validator.reset();
+
+    expect(function() {
+      validator.addAlias('notEmptyStr', aliasDefinition.validator, aliasDefinition.options);
+    }).to.not.throw(Error);
+    validator.notEmptyStr('str', 'xxx');
+    expect(validator.errors()).not.to.be.null;
+  });
+
+  it('should not allow overwriting an alias' +
+     ' if options.allowOverwriteValidator is false', function() {
+    var validator = new Validator({ allowOverwriteValidator: false });
+
+    expect(validator.notEmptyStr).not.to.be.undefined;
+    expect(function() {
+      validator.addAlias('notEmptyStr', aliasDefinition.validator, aliasDefinition.options);
+    }).to.throw(Error);
+  });
+
+  it('should allow overwriting a schema' +
+     ' if options.allowOverwriteValidator is true', function() {
+    var validator = new Validator({ allowOverwriteValidator: true });
+    var data = { foo: 'xxx' };
+
+    validator.addSchema(schemaDefinition.name, schemaDefinition.schema, schemaDefinition.options);
+    validator.schema(schemaDefinition.name, data);
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({ foo: 'xxx', bar: 0 });
+    validator.reset();
+
+    expect(function() {
+      validator.addSchema(schemaDefinition.name,
+                          schemaDefinition2.schema,
+                          schemaDefinition2.options);
+    }).to.not.throw(Error);
+    validator.schema(schemaDefinition.name, data);
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({ foo: 'xxx', bar: 1 });
+  });
+
+  it('should not allow overwriting a schema' +
+     ' if options.allowOverwriteValidator is false', function() {
+    var validator = new Validator({ allowOverwriteValidator: false });
+
+    validator.addSchema(schemaDefinition.name, schemaDefinition, schemaDefinition.options);
+    expect(function() {
+      validator.addSchema(schemaDefinition.name,
+                          schemaDefinition2.schema,
+                          schemaDefinition2.options);
     }).to.throw(Error);
   });
 
@@ -588,18 +663,6 @@ describe('validator aliases basic', function() {
     expect(v1.valid().a3).to.equal('AEIOU AEIOU AEI');
     expect(v1.errors().a4).to.equal('abcdef');
   });
-
-  it('should not allow defining aliases if there is already a method with that name', function() {
-    var v1 = new Validator({ returnNullOnErrors: false });
-
-    expect(function() {
-      Validator.addAlias('str', 'num', {});
-    }).to.throw(Error);
-
-    expect(function() {
-      v1.addAlias('str', 'num', {});
-    }).to.throw(Error);
-  });
 });
 
 describe('validator schemas basic', function() {
@@ -638,20 +701,6 @@ describe('validator schemas basic', function() {
 
     expect(v1.schema(schemaDefinition.name, data).valid()).to.eql(data);
     expect(v2.schema(schemaDefinition.name, data).valid()).to.eql(data);
-  });
-
-  it('should not allow defining new schemas if there is already one with that name', function() {
-    var v1 = new Validator({ returnNullOnErrors: false });
-
-    expect(function() {
-      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
-      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
-    }).to.throw(Error);
-
-    expect(function() {
-      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
-      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
-    }).to.throw(Error);
   });
 });
 
