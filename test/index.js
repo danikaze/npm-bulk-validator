@@ -34,7 +34,9 @@ var schemaDefinition = {
       options: { optional: true, defaultValue: 0 },
     },
   },
-  options: {},
+  options: {
+    canonize: true,
+  },
 };
 
 var schemaDefinition2 = {
@@ -48,7 +50,9 @@ var schemaDefinition2 = {
       options: { optional: true, defaultValue: 1 },
     },
   },
-  options: {},
+  options: {
+    canonize: false,
+  },
 };
 
 /*
@@ -683,6 +687,63 @@ describe('validator schemas basic', function() {
 
     expect(function() { v1.schema(schemaDefinition.name, data); }).to.not.throw();
     expect(function() { v2.schema(schemaDefinition.name, data); }).to.throw();
+  });
+
+  it('should use provided validator options when using a schema', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var v2 = new Validator({ returnNullOnErrors: false });
+    var data = {
+      foo: 'foo',
+      bar: '123',
+    };
+
+    v1.addSchema(schemaDefinition.name,
+                 schemaDefinition.schema,
+                 schemaDefinition.options);
+
+    v1.schema(schemaDefinition.name, data);
+    expect(v1.valid()).to.eql({
+      foo: 'foo',
+      bar: 123,
+    });
+
+    v2.addSchema(schemaDefinition2.name,
+                 schemaDefinition2.schema,
+                 schemaDefinition2.options);
+
+    v2.schema(schemaDefinition2.name, data);
+    expect(v2.valid()).to.eql({
+      foo: 'foo',
+      bar: '123',
+    });
+  });
+
+  it('should use each data option when using a schema', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var v2 = new Validator({ returnNullOnErrors: false });
+    var data = {
+      foo: 'foo',
+    };
+
+    v1.addSchema(schemaDefinition.name,
+                 schemaDefinition.schema,
+                 schemaDefinition.options);
+
+    v1.schema(schemaDefinition.name, data);
+    expect(v1.valid()).to.eql({
+      foo: 'foo',
+      bar: 0,
+    });
+
+    v2.addSchema(schemaDefinition2.name,
+                 schemaDefinition2.schema,
+                 schemaDefinition2.options);
+
+    v2.schema(schemaDefinition2.name, data);
+    expect(v2.valid()).to.eql({
+      foo: 'foo',
+      bar: 1,
+    });
   });
 
   it('should allow adding global schemas', function() {

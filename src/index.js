@@ -112,6 +112,7 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if (data === undefined && options.optional) {
+      data = options.defaultValue !== undefined ? options.defaultValue : undefined;
       res = {
         data: options.defaultValue !== undefined ? options.defaultValue : undefined,
         valid: true,

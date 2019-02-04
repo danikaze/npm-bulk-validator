@@ -765,3 +765,4 @@ npm install -d && npm test
 - Added `preTransform` and `postTransform` optional callbacks to validators.
 - Fixed: default options behavior. Default options now get applied properly even if they change after defining a validator.
 - Fixed: `allowOverwriteValidator` now works for aliases and schemas too.
+- Fixed: Schemas now use properly options specified at the definition time, and local options for each property validation.
