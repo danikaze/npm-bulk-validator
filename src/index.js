@@ -1,5 +1,9 @@
 var extend = require('extend');
-var typeCheck = require('vanilla-type-check');
+var isArray = require('vanilla-type-check/isArray').isArray;
+var isEmpty = require('vanilla-type-check/isEmpty').isEmpty;
+var isFunction = require('vanilla-type-check/isFunction').isFunction;
+var isObject = require('vanilla-type-check/isObject').isObject;
+var isString = require('vanilla-type-check/isString').isString;
 var validatorDefinitions = require('./definitions');
 var aliases = require('./aliases');
 
@@ -8,24 +12,32 @@ module.exports.Validator = (function moduleDefinition() {
   'use strict';
 
   var defaultOptions = {
-    // strict validation
+    /** strict validation */
     strict: false,
-    // convert data to its canonical form
+    /** convert data to its canonical form */
     canonize: true,
-    // if there are any errors, {@link R.Validator#valid} returns null
+    /** if there are any errors, {@link R.Validator#valid} returns null */
     returnNullOnErrors: true,
-    // if true, it will not validate any other object after the first error
+    /** if true, it will not validate any other object after the first error */
     stopAfterFirstError: false,
-    // if true, a undefined value will validate
+    /** if true, a undefined value will validate */
     optional: false,
-    // value to return if doesn't validates and {@link options.optional} is true
+    /** value to return if doesn't validates and {@link options.optional} is true */
     defaultValue: undefined,
-    // object with the default validators to load with {@link R.Validator.addValidator}
+    /** object with the default validators to load with {@link R.Validator.addValidator} */
     validators: undefined,
-    // if an existing validator is defined and this option is false, an exception will raise
+    /** if an existing validator is defined and this option is false, an exception will raise */
     allowOverwriteValidator: false,
-    // `undefined` values won't be included in valid() if this option is true
+    /** `undefined` values won't be included in valid() if this option is true */
     returnUndefined: true,
+    /** Functions to apply (in order) to the data *before* validating. Validation and canonization is applied to the result */
+    preTransform: undefined,
+    /** Functions to apply (in order) to the data *after* validating. It affects raw and canonized data. Must not modify the original data */
+    postTransform: undefined,
+    /** If `true`, passed data (to an schema) without an assigned validator, will be included -as it is- in the result, ommitted otherwise */
+    includeExternal: false,
+    /** If `true`, passed data (to an schema) without an assigned validator will not validate (`includeExternal` option will be ignored then) */
+    externalShouldFail: true,
   };
 
   /**
@@ -49,6 +61,31 @@ module.exports.Validator = (function moduleDefinition() {
   }
 
   /**
+   * Apply a transformation or a list of them to the given data
+   *
+   * @param  {any}                 data
+   * @param  {function|function[]} transformation
+   * @return {any}
+   */
+  function applyTransformation(data, transformation) {
+    var i;
+
+    if (!transformation) {
+      return data;
+    }
+
+    if (isArray(transformation)) {
+      for (i = 0; i < transformation.length; i++) {
+        data = transformation[i](data);
+      }
+    } else {
+      data = transformation(data);
+    }
+
+    return data;
+  }
+
+  /**
    * Validates a simple data with the specified validator definition
    *
    * @param {Validator} validator
@@ -62,14 +99,24 @@ module.exports.Validator = (function moduleDefinition() {
    */
   function validateData(validator, validatorDefinition, key, data, options) {
     var res;
+    var td; // transformed data
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
+      return;
+    }
+
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+      data = applyTransformation(data, options && options.preTransformItem);
+    } catch (e) {
+      store(validator, key, data, data, false);
       return;
     }
 
     if (data === undefined && options.optional) {
+      data = options.defaultValue !== undefined ? options.defaultValue : undefined;
       res = {
         data: options.defaultValue !== undefined ? options.defaultValue : undefined,
         valid: true,
@@ -79,7 +126,15 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
-      store(validator, key, data, options.canonize ? res.data : data, res.valid);
+      td = options.canonize ? res.data : data;
+      try {
+        td = applyTransformation(td, options && options.postTransformItem);
+        td = applyTransformation(td, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
+      store(validator, key, data, td, res.valid);
     }
   }
 
@@ -100,20 +155,34 @@ module.exports.Validator = (function moduleDefinition() {
   function validateArray(validator, validatorDefinition, key, data, options) {
     var ok = true;
     var val;
+    var item;
     var res;
     var i;
     var n;
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
     }
 
-    if (typeCheck.isArray(data)) {
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+    } catch (e) {
+      store(validator, key, data, data, false);
+      return;
+    }
+
+    if (isArray(data)) {
       val = data.slice();
       for (i = 0, n = val.length; i < n; i++) {
-        res = validatorDefinition(val[i], options);
+        try {
+          item = applyTransformation(val[i], options && options.preTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
+        }
+        res = validatorDefinition(item, options);
 
         if (!res.valid) {
           ok = false;
@@ -122,6 +191,13 @@ module.exports.Validator = (function moduleDefinition() {
 
         if (options.canonize) {
           val[i] = res.data;
+        }
+
+        try {
+          val[i] = applyTransformation(val[i], options && options.postTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
         }
       }
     } else if (data === undefined && options.optional) {
@@ -135,6 +211,12 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      try {
+        val = applyTransformation(val, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
       store(validator, key, data, val, ok);
     }
   }
@@ -155,19 +237,33 @@ module.exports.Validator = (function moduleDefinition() {
   function validateObject(validator, validatorDefinition, key, data, options) {
     var ok = true;
     var val;
+    var item;
     var res;
     var i;
 
-    options = extend({}, validator.options, options);
+    options = extend({}, Validator.defaultOptions, validator.options, options);
 
-    if (options.stopAfterFirstError && !typeCheck.isEmptyObject(validator.wrong)) {
+    if (options.stopAfterFirstError && !isEmpty(validator.wrong)) {
       return;
     }
 
-    if (typeCheck.isObject(data)) {
+    try {
+      data = applyTransformation(data, options && options.preTransform);
+    } catch (e) {
+      store(validator, key, data, data, false);
+      return;
+    }
+
+    if (isObject(data)) {
       val = extend(true, {}, data);
       for (i in data) {
-        res = validatorDefinition(val[i], options);
+        try {
+          item = applyTransformation(val[i], options && options.preTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
+        }
+        res = validatorDefinition(item, options);
 
         if (!res.valid) {
           ok = false;
@@ -176,6 +272,12 @@ module.exports.Validator = (function moduleDefinition() {
 
         if (options.canonize) {
           val[i] = res.data;
+        }
+        try {
+          val[i] = applyTransformation(val[i], options && options.postTransformItem);
+        } catch (e) {
+          store(validator, key, data, data, false);
+          return;
         }
       }
     } else if (data === undefined && options.optional) {
@@ -189,6 +291,12 @@ module.exports.Validator = (function moduleDefinition() {
     }
 
     if ((res && (!res.valid || res.data !== undefined)) || options.returnUndefined) {
+      try {
+        val = applyTransformation(val, options && options.postTransform);
+      } catch (e) {
+        store(validator, key, data, data, false);
+        return;
+      }
       store(validator, key, data, val, ok);
     }
   }
@@ -203,7 +311,7 @@ module.exports.Validator = (function moduleDefinition() {
   function Validator(options) {
     var i;
 
-    this.options = extend({}, defaultOptions, options);
+    this.options = options || {};
     this.ok = {};
     this.wrong = {};
     this.schemaList = {};
@@ -226,7 +334,7 @@ module.exports.Validator = (function moduleDefinition() {
    * @public
    */
   Validator.prototype.errors = function errors() {
-    return typeCheck.isEmptyObject(this.wrong) ? null : this.wrong;
+    return isEmpty(this.wrong) ? null : this.wrong;
   };
 
   /**
@@ -249,11 +357,11 @@ module.exports.Validator = (function moduleDefinition() {
     var v = null;
     var i;
 
-    if (typeof base !== 'undefined' && !typeCheck.isObject(base)) {
+    if (typeof base !== 'undefined' && !isObject(base)) {
       throw new Error('base needs to be a plain object if specified');
     }
 
-    if (!this.options.returnNullOnErrors || typeCheck.isEmptyObject(this.wrong)) {
+    if (!this.options.returnNullOnErrors || isEmpty(this.wrong)) {
       if (base) {
         for (i in this.ok) {
           base[i] = this.ok[i];
@@ -344,16 +452,19 @@ module.exports.Validator = (function moduleDefinition() {
    * Validates data against an specified schema.
    * Properties in the `data` that are not defined in the schema will be ignored.
    *
-   * @param  {String}    name Name of the schema to use
-   * @param  {Object}    data Data to validate as `{ key: value }`
-   * @return {Validator}      this instance to allow method chaining
+   * @param  {String}    name    Name of the schema to use
+   * @param  {Object}    data    Data to validate as `{ key: value }`
+   * @param  {Object}    options Extra options to pass to the validators
+   * @return {Validator}         this instance to allow method chaining
    *
    * @public
    */
-  Validator.prototype.schema = function schema(name, data) {
+  Validator.prototype.schema = function schema(name, data, options) {
     var schemaDefinition = this.schemaList[name] || Validator.schemaList[name];
+    var opt = extend({}, defaultOptions, this.options, options);
     var key;
     var property;
+    var value;
 
     if (!schemaDefinition) {
       throw new Error('Schema not found');
@@ -363,6 +474,15 @@ module.exports.Validator = (function moduleDefinition() {
     for (key in schemaDefinition) {
       property = schemaDefinition[key];
       this[property.validator](key, data[key], property.options);
+    }
+
+    if (opt.includeExternal) {
+      for (key in data) {
+        if (!schemaDefinition[key]) {
+          value = data[key];
+          store(this, key, value, value, !opt.externalShouldFail);
+        }
+      }
     }
 
     return this;
@@ -440,11 +560,11 @@ module.exports.Validator = (function moduleDefinition() {
     /*
      * Data validation
      */
-    if (!name || !typeCheck.isString(name)) {
+    if (!name || !isString(name)) {
       throw new Error('the specified name is not valid');
     }
 
-    if (!typeCheck.isFunction(validatorDefinition)) {
+    if (!isFunction(validatorDefinition)) {
       throw new Error('validatorDefinition needs to be a function');
     }
 
@@ -588,11 +708,12 @@ module.exports.Validator = (function moduleDefinition() {
    */
   Validator.addSchema = function addSchema(schemaName, schema, options, validator) {
     var target = (validator && validator.schemaList) || Validator.schemaList;
+    var opt = validator ? validator.options : defaultOptions;
     var definition = {};
     var property;
     var key;
 
-    if (target[schemaName]) {
+    if (!opt.allowOverwriteValidator && target[schemaName]) {
       throw new Error('The schema ' + schemaName + ' is already defined');
     }
 

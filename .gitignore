@@ -6,8 +6,7 @@
 .vscode/*
 src/.vscode/*
 node_modules
-bin
-design
+__temp
 
 # =========================
 # Operating System Files

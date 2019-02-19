@@ -1,4 +1,6 @@
 var expect = require('chai').expect;
+var isArray = require('vanilla-type-check/isArray').isArray;
+var isObject = require('vanilla-type-check/isObject').isObject;
 var Validator = require('../src/index').Validator;
 
 var basicValidator = new Validator({ returnNullOnErrors: false });
@@ -32,7 +34,25 @@ var schemaDefinition = {
       options: { optional: true, defaultValue: 0 },
     },
   },
-  options: {},
+  options: {
+    canonize: true,
+  },
+};
+
+var schemaDefinition2 = {
+  name: 's2',
+  schema: {
+    foo: {
+      validator: 'str',
+    },
+    bar: {
+      validator: 'num',
+      options: { optional: true, defaultValue: 1 },
+    },
+  },
+  options: {
+    canonize: false,
+  },
 };
 
 /*
@@ -241,8 +261,8 @@ describe('validator basic options', function() {
     expect(validator.errors().data3).to.equal('bar');
   });
 
-  it('should not allow overwriting a validator' +
-     ' if options.allowOverwriteValidator is false', function() {
+  it('should allow overwriting a validator' +
+     ' if options.allowOverwriteValidator is true', function() {
     var validator = new Validator({ allowOverwriteValidator: true });
 
     expect(validator.num).not.to.be.undefined;
@@ -250,18 +270,79 @@ describe('validator basic options', function() {
     expect(validator.errors()).to.be.null;
     validator.reset();
 
-    validator.addValidator('num', idValidatorDefinition);
+    expect(function() {
+      validator.addValidator('num', idValidatorDefinition);
+    }).to.not.throw(Error);
     validator.num('zero', 0);
     expect(validator.errors()).not.to.be.null;
   });
 
-  it('should allow overwriting a validator' +
+  it('should not allow overwriting a validator' +
      ' if options.allowOverwriteValidator is false', function() {
     var validator = new Validator({ allowOverwriteValidator: false });
 
     expect(validator.num).not.to.be.undefined;
     expect(function() {
       validator.addValidator('num', idValidatorDefinition);
+    }).to.throw(Error);
+  });
+
+  it('should allow overwriting an alias' +
+     ' if options.allowOverwriteValidator is true', function() {
+    var validator = new Validator({ allowOverwriteValidator: true });
+
+    expect(validator.notEmptyStr).not.to.be.undefined;
+    validator.notEmptyStr('str', 'xxx');
+    expect(validator.errors()).to.be.null;
+    validator.reset();
+
+    expect(function() {
+      validator.addAlias('notEmptyStr', aliasDefinition.validator, aliasDefinition.options);
+    }).to.not.throw(Error);
+    validator.notEmptyStr('str', 'xxx');
+    expect(validator.errors()).not.to.be.null;
+  });
+
+  it('should not allow overwriting an alias' +
+     ' if options.allowOverwriteValidator is false', function() {
+    var validator = new Validator({ allowOverwriteValidator: false });
+
+    expect(validator.notEmptyStr).not.to.be.undefined;
+    expect(function() {
+      validator.addAlias('notEmptyStr', aliasDefinition.validator, aliasDefinition.options);
+    }).to.throw(Error);
+  });
+
+  it('should allow overwriting a schema' +
+     ' if options.allowOverwriteValidator is true', function() {
+    var validator = new Validator({ allowOverwriteValidator: true });
+    var data = { foo: 'xxx' };
+
+    validator.addSchema(schemaDefinition.name, schemaDefinition.schema, schemaDefinition.options);
+    validator.schema(schemaDefinition.name, data);
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({ foo: 'xxx', bar: 0 });
+    validator.reset();
+
+    expect(function() {
+      validator.addSchema(schemaDefinition.name,
+                          schemaDefinition2.schema,
+                          schemaDefinition2.options);
+    }).to.not.throw(Error);
+    validator.schema(schemaDefinition.name, data);
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({ foo: 'xxx', bar: 1 });
+  });
+
+  it('should not allow overwriting a schema' +
+     ' if options.allowOverwriteValidator is false', function() {
+    var validator = new Validator({ allowOverwriteValidator: false });
+
+    validator.addSchema(schemaDefinition.name, schemaDefinition, schemaDefinition.options);
+    expect(function() {
+      validator.addSchema(schemaDefinition.name,
+                          schemaDefinition2.schema,
+                          schemaDefinition2.options);
     }).to.throw(Error);
   });
 
@@ -312,6 +393,237 @@ describe('validator basic options', function() {
   });
 });
 
+describe('validator transform functions', function() {
+  'use strict';
+
+  function toInt(data) {
+    return parseInt(data, 10);
+  }
+
+  function splitToArray(data) {
+    return data.split(',').map(function (item) { return item.trim(); });
+  }
+
+  function splitToObject(data) {
+    var c = 'a'.charCodeAt(0);
+    var res = {};
+
+    splitToArray(data).forEach((item) => {
+      res[String.fromCharCode(c++)] = item;
+    });
+
+    return res;
+  }
+
+  function prefixer(str) {
+    return function(data) {
+      return str + data;
+    };
+  }
+
+  function postfixer(str) {
+    return function(data) {
+      return data + str;
+    };
+  }
+
+  function join(data) {
+    var res;
+
+    if (isArray(data)) {
+      res = data.join(', ');
+    } else if (isObject(data)) {
+      res = Object.keys(data)
+        .map(function (key) { return data[key]; })
+        .join(', ');
+    } else {
+      res = data;
+    }
+    return '{' + res + '}';
+  }
+
+  function triggerError() {
+    throw new Error();
+  }
+
+  it('should pre-transform the raw data', function() {
+    var validator = new Validator({
+      canonize: false,
+    });
+
+    validator.num('single', '123', { preTransform: toInt });
+    validator.numArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.numObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: 123,
+      array: ['1', '2', '3'],
+      object: { a: '1', b: '2', c: '3' },
+    });
+  });
+
+  it('should pre-transform each data item', function() {
+    var validator = new Validator({
+      strict: true,
+      preTransformItem: toInt,
+    });
+
+    validator.num('single', '123');
+    validator.numArray('array', ['1', '2', '3']);
+    validator.numObject('object', { a: '1', b: '2', c: '3' });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: 123,
+      array: [1, 2, 3],
+      object: { a: 1, b: 2, c: 3 },
+    });
+  });
+
+  it('should pre-transform the raw data and then each data item', function() {
+    var validator = new Validator({
+      preTransformItem: prefixer('('),
+    });
+
+    validator.str('single', 'abc');
+    validator.strArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.strObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '(abc',
+      array: ['(1', '(2', '(3'],
+      object: { a: '(1', b: '(2', c: '(3' },
+    });
+  });
+
+  it('should post-transform the raw data', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransform: join,
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{123}',
+      array: '{1, 2, 3}',
+      object: '{1, 2, 3}',
+    });
+  });
+
+  it('should post-transform each data item', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransformItem: prefixer('('),
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '(123',
+      array: ['(1', '(2', '(3'],
+      object: { a: '(1', b: '(2', c: '(3' },
+    });
+  });
+
+  it('should post-transform each data item and then the resulting data', function() {
+    var validator = new Validator({
+      strict: true,
+      postTransformItem: prefixer('('),
+      postTransform: join,
+    });
+
+    validator.num('single', 123);
+    validator.numArray('array', [1, 2, 3]);
+    validator.numObject('object', { a: 1, b: 2, c: 3 });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{(123}',
+      array: '{(1, (2, (3}',
+      object: '{(1, (2, (3}',
+    });
+  });
+
+  it('should combine pre and post transforms', function() {
+    var validator = new Validator({
+      strict: true,
+      preTransformItem: toInt,
+      postTransformItem: prefixer('('),
+      postTransform: join,
+    });
+
+    validator.num('single', '123');
+    validator.numArray('array', '1,2,3', { preTransform: splitToArray });
+    validator.numObject('object', '1,2,3', { preTransform: splitToObject });
+
+    expect(validator.errors()).to.be.null;
+    expect(validator.valid()).to.eql({
+      single: '{(123}',
+      array: '{(1, (2, (3}',
+      object: '{(1, (2, (3}',
+    });
+  });
+
+  it('should not validate nor trigger error when transform fails', function() {
+    var validator = new Validator();
+
+    validator.num('ok', 123);
+    expect(function() {
+      validator.num('d1', 1, { preTransform: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d2', 2, { preTransformItem: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d3', 3, { postTransform: triggerError });
+    }).to.not.throw(Error);
+    expect(function() {
+      validator.num('d4', 4, { postTransformItem: triggerError });
+    }).to.not.throw(Error);
+
+    expect(validator.valid()).to.eql({ ok: 123 });
+    expect(validator.errors()).to.eql({
+      d1: 1,
+      d2: 2,
+      d3: 3,
+      d4: 4,
+    });
+  });
+
+  it('should apply multiple transformation functions', function() {
+    var validator = new Validator();
+    var pre = [prefixer('['), prefixer('{')];
+    var preItem = [prefixer('<'), prefixer('~')];
+    var post = [postfixer('}'), postfixer(']')];
+    var postItem = [postfixer('+'), postfixer('>')];
+
+    validator.str('pre', 'abc', { preTransform: pre });
+    validator.strArray('preArray', ['a', 'b'], { preTransformItem: preItem });
+    validator.strObject('preObject', { a: 'a', b: 'b' }, { preTransformItem: preItem });
+    validator.str('post', 'abc', { preTransform: post });
+    validator.strArray('postArray', ['a', 'b'], { preTransformItem: postItem });
+    validator.strObject('postObject', { a: 'a', b: 'b' }, { postTransformItem: postItem });
+
+    expect(validator.valid()).to.eql({
+      pre: '{[abc',
+      preArray: ['~<a', '~<b'],
+      preObject: { a: '~<a', b: '~<b' },
+      post: 'abc}]',
+      postArray: ['a+>', 'b+>'],
+      postObject: { a: 'a+>', b: 'b+>' },
+    });
+  });
+});
+
 describe('validator aliases basic', function() {
   'use strict';
 
@@ -355,18 +667,6 @@ describe('validator aliases basic', function() {
     expect(v1.valid().a3).to.equal('AEIOU AEIOU AEI');
     expect(v1.errors().a4).to.equal('abcdef');
   });
-
-  it('should not allow defining aliases if there is already a method with that name', function() {
-    var v1 = new Validator({ returnNullOnErrors: false });
-
-    expect(function() {
-      Validator.addAlias('str', 'num', {});
-    }).to.throw(Error);
-
-    expect(function() {
-      v1.addAlias('str', 'num', {});
-    }).to.throw(Error);
-  });
 });
 
 describe('validator schemas basic', function() {
@@ -389,6 +689,63 @@ describe('validator schemas basic', function() {
     expect(function() { v2.schema(schemaDefinition.name, data); }).to.throw();
   });
 
+  it('should use provided validator options when using a schema', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var v2 = new Validator({ returnNullOnErrors: false });
+    var data = {
+      foo: 'foo',
+      bar: '123',
+    };
+
+    v1.addSchema(schemaDefinition.name,
+                 schemaDefinition.schema,
+                 schemaDefinition.options);
+
+    v1.schema(schemaDefinition.name, data);
+    expect(v1.valid()).to.eql({
+      foo: 'foo',
+      bar: 123,
+    });
+
+    v2.addSchema(schemaDefinition2.name,
+                 schemaDefinition2.schema,
+                 schemaDefinition2.options);
+
+    v2.schema(schemaDefinition2.name, data);
+    expect(v2.valid()).to.eql({
+      foo: 'foo',
+      bar: '123',
+    });
+  });
+
+  it('should use each data option when using a schema', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var v2 = new Validator({ returnNullOnErrors: false });
+    var data = {
+      foo: 'foo',
+    };
+
+    v1.addSchema(schemaDefinition.name,
+                 schemaDefinition.schema,
+                 schemaDefinition.options);
+
+    v1.schema(schemaDefinition.name, data);
+    expect(v1.valid()).to.eql({
+      foo: 'foo',
+      bar: 0,
+    });
+
+    v2.addSchema(schemaDefinition2.name,
+                 schemaDefinition2.schema,
+                 schemaDefinition2.options);
+
+    v2.schema(schemaDefinition2.name, data);
+    expect(v2.valid()).to.eql({
+      foo: 'foo',
+      bar: 1,
+    });
+  });
+
   it('should allow adding global schemas', function() {
     var v1 = new Validator({ returnNullOnErrors: false });
     var v2 = new Validator({ returnNullOnErrors: false });
@@ -407,17 +764,185 @@ describe('validator schemas basic', function() {
     expect(v2.schema(schemaDefinition.name, data).valid()).to.eql(data);
   });
 
-  it('should not allow defining new schemas if there is already one with that name', function() {
+  it('should not include external data if includeExternal by default', function() {
     var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
 
-    expect(function() {
-      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
-      Validator.addSchema(schemaDefinition.name, schemaDefinition.schema);
-    }).to.throw(Error);
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data);
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123 });
+  });
 
-    expect(function() {
-      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
-      v1.addSchema(schemaDefinition.name, schemaDefinition.schema);
-    }).to.throw(Error);
+  it('should include external data if includeExternal is true (error by default)', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
+
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data, { includeExternal: true });
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123 });
+    expect(v1.errors()).to.eql({ other: 'external' });
+  });
+
+  it('should include external data if includeExternal is true'
+    + ' (valid if externalShouldFail is false)', function() {
+    var v1 = new Validator({ returnNullOnErrors: false });
+    var schemaName = 's1b';
+    var data = {
+      foo: 'foo',
+      bar: 123,
+      other: 'external',
+    };
+
+    v1.addSchema(schemaName, schemaDefinition.schema, schemaDefinition.options);
+    v1.schema(schemaName, data, { includeExternal: true, externalShouldFail: false });
+    expect(v1.valid()).to.eql({ foo: 'foo', bar: 123, other: 'external' });
+  });
+});
+
+describe('default options', function() {
+  'use strict';
+
+  var v1;
+  var v2;
+  var schema = {
+    num: {
+      validator: 'num',
+    },
+    str: {
+      validator: 'positiveInt',
+    },
+  };
+  var schemaName = 'schemaDefaultTest';
+
+  it('should apply default options in a validator if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.num('num', 1);
+    v2.num('str', '1');
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in a validator even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.num('num', 1);
+    v1.num('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
+  });
+
+  it('should apply default options in an alias if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.positiveInt('num', 1);
+    v2.positiveInt('str', '1');
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in an alias even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.positiveInt('num', 1);
+    v1.positiveInt('str', '1');
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
+  });
+
+  it('should apply default options in a schema if not specified', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.addSchema(schemaName, schema);
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v2 = new Validator();
+    v2.addSchema(schemaName, schema);
+    v2.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v2.valid().num).to.equal(1);
+    expect(v2.valid().str).to.equal('1');
+  });
+
+  it('should apply latest default options in a schema even if they are updated', function() {
+    Validator.defaultOptions.strict = false;
+    Validator.defaultOptions.canonize = true;
+
+    v1 = new Validator();
+    v1.addSchema(schemaName, schema);
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal(1);
+
+    Validator.defaultOptions.canonize = false;
+
+    v1.schema(schemaName, {
+      num: 1,
+      str: '1',
+    });
+    expect(v1.valid().num).to.equal(1);
+    expect(v1.valid().str).to.equal('1');
   });
 });

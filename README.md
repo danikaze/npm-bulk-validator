@@ -24,6 +24,13 @@ Data validator which allows:
     - [returnUndefined](#returnundefined)
     - [validators](#validators)
     - [allowOverwriteValidator](#allowoverwritevalidator)
+    - [includeExternal](#includeexternal)
+    - [externalShouldFail](#externalshouldfail)
+    - [preTransform](#pretransform)
+    - [preTransformItem](#pretransformitem)
+    - [postTransformItem](#posttransformitem)
+    - [postTransform](#posttransform)
+  - [Notes about transformation functions](#notesabouttransformationfunctions)
   - [List of default validators](#list-of-default-validators)
     - [defined](#defined)
     - [bool](#bool)
@@ -224,9 +231,174 @@ This option protects the already created validators.
 Set it to `true` if you wanna get rid of any of them or override its behavior with a custom one.
 
 **Note:**
-it will raise an `Error` if you try to override any method with this option set to `false`.
+Trying to override any method with this option set to `false` will throw an `Error`.
 
 Default value: `false`
+
+### includeExternal
+
+This option allows to return the data (in `valid()` or `errors()` depending on `externalShouldFail` option) instead of ignoring the data without a definition when validating objects in an schema.
+
+Example
+
+```javascript
+var v = new Validator();
+v.addSchema('test', {
+  foo: { validator: 'num' },
+  bar: { validator: 'str' },
+});
+var data = {
+  foo: 123,
+  bar: 'xyz',
+  other: 'external'
+};
+
+v.schema('test', data);
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === null
+
+v.schema('test', data, { includeExternal: true });
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === { other: 'external' }
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: false });
+// v.valid() === { foo: 123, bar: 'xyz', other: 'external' }
+// v.error() === null
+```
+
+Default value: `false`
+
+### externalShouldFail
+
+This option is only used when `includeExternal` is `true` (otherwise external values are just ignored).
+
+By default, external values will fail the validation as they are not defined in the schema, but setting this option to `false` will return them in the `valid()` result:
+
+```javascript
+var v = new Validator();
+v.addSchema('test', {
+  foo: { validator: 'num' },
+  bar: { validator: 'str' },
+});
+var data = {
+  foo: 123,
+  bar: 'xyz',
+  other: 'external'
+};
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: true });
+// v.valid() === { foo: 123, bar: 'xyz' }
+// v.error() === { other: 'external' }
+
+v.schema('test', data, { includeExternal: true, externalShouldFail: false });
+// v.valid() === { foo: 123, bar: 'xyz', other: 'external' }
+// v.error() === null
+```
+
+Default value: `true`
+
+### preTransform
+
+Setting this option to a function, you can set it to be called everytime a validation is going to be done, **before** it happens. The input data is the raw value to be validated, and the result is the actual value that is going to be passed to the validator.
+
+Example
+```javascript
+// get the data and return it times 10
+function times10(data) {
+  return data * 10;
+}
+
+// validate only numbers greater or equal than 50
+var v = new Validator();
+// 10 without transform is 10
+v.num('raw', 10, { min: 50 });
+// 10 transformed, is 100
+v.num('transformed', 10, { min: 50, preTransform: times10 });
+
+// v.valid().transformed === 100
+// v.errors().raw === 10
+```
+
+Applying it to the raw data means that if the data to validate is an array or an object, it's applied to the whole data itself, not to each of its elements.
+
+```javascript
+function addElement(data) {
+  if (isArray(data)) {
+    return data.concat([0]);
+  } else if (isObject(data)) {
+    return {
+      extra: 0,
+      ...data,
+    };
+  } else {
+    return data;
+  }
+}
+
+var v = new Validator({ preTransform: addElement });
+v.num('single', 123);
+v.numArray('list', [10, 20, 30]);
+v.numObject('object', { a: 10, b: 20, c: 30 });
+
+// v.valid() === {
+//  single: 123,
+//  list: [10, 20, 30, 0],
+//  object: { a: 10, b: 20, c: 30, extra: 0 },
+// }
+```
+
+If the transformation data triggers any error, the data won't validate.
+
+Default value: `undefined`
+
+### preTransformItem
+
+Works like `preTransform` but the callback is applied to **each element** before the validation (but after `preTransform` is applied):
+
+```javascript
+// validate only numbers greater or equal than 50
+var v = new Validator({ min: 50 });
+
+v.num('single', 10);
+v.num('list', [10, 20, 30]);
+v.num('object', { a: 10, b: 20, c: 30 });
+v.num('transformedSingle', 10, { preTransformItem: times10 });
+v.num('transformedList', [10, 20, 30], { preTransformItem: times10 });
+v.num('transformedObject', { a: 10, b: 20, c: 30 }, { preTransformItem: times10 });
+
+// v.valid() === {
+//  transformedSingle: 100,
+//  transformedList: [100, 200, 300],
+//  transformedObject: { a: 100, b: 200, c: 300 },
+// }
+
+// v.errors() === {
+//  single: 10,
+//  list: [10, 20, 30],
+//  object: { a: 10, b: 20, c: 30 },
+// }
+```
+
+### postTransformItem
+
+Works like `preTransformItem` but the callback is applied to **each** item, after the validation.
+
+### postTransform
+
+Works like `preTransform` but the callback is applied just before the data is returned (and after all `preTransformItem` are applied).
+
+## Notes about transformation functions
+
+When applying transformations, the process is like described here:
+1. Apply `preTransform` functions (if defined) to the raw data
+2. Apply `preTransformItem` functions (if defined) to each raw item
+3. Apply the validation to the data (each item for `~Array` and `~Object` variants)
+4. Apply `postTransformItem` functions (if defined) to each validated item (if `canonized` option is `true`, _canonization_ will be done before this step)
+5. Apply `postTransform` functions (if defined) to the final result before being stored in the valid item list
+
+* For single validations, `preTransform` and `preTransformItem` are applied both, in that order.
+* For single validations, `postTransformItem` and `postTransform` are applied both, in that order.
+* If a transformation function fails (i.e. triggering an error), the validation fails (the data will be in `errors()`) without triggering any error
 
 ## List of default validators
 
@@ -551,7 +723,7 @@ v.valid();  // { pass: 8, odd: 7 }
 v.errors(); // { fail: '-3,2,8' }
 ```
 
-You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/definitions.js)
+You can see more examples in [definitions.js](https://github.com/danikaze/npm-bulk-validator/blob/master/src/definitions.js)
 
 ## Defining custom aliases
 
@@ -589,7 +761,7 @@ typeof v1.int; // 'function'
 typeof v2.int; // 'undefined'
 ```
 
-You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/aliases.js)
+You can see more examples in [aliases.js](https://github.com/danikaze/npm-bulk-validator/blob/master/src/aliases.js)
 
 ## Defining and using schemas
 
@@ -641,6 +813,10 @@ v1.schema('local-schema', { foo: 'abc', bar: 123 });
 v1.valid(); // { foo: 'abc', bar: 123 }
 v1.schema('local-schema', { foo: 'abc' });
 v1.valid(); // { foo: 'abc', bar: 0 }
+
+// extra local options can also be passed to schema validations
+v1.schema('local-schema', { foo: 'abc', bar: '123' }, { canonize: false });
+v1.valid(); // { foo: 'abc', bar: '123' }
 ```
 
 ## Running tests
@@ -650,3 +826,14 @@ Install dev dependencies
 ```
 npm install -d && npm test
 ```
+
+## Change log
+
+### 1.1.0
+
+- Added `preTransform` and `postTransform` optional callbacks to validators.
+- Fixed: default options behavior. Default options now get applied properly even if they change after defining a validator.
+- Fixed: `allowOverwriteValidator` now works for aliases and schemas too.
+- Fixed: Schemas now use properly options specified at the definition time, and local options for each property validation.
+- Added new schema options: `includeExternal` and `externalShouldFail`.
+- Added local options for schema validations (as a new 3rd parameter).
